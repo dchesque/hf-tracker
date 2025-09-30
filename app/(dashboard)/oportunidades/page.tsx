@@ -102,14 +102,19 @@ export default function OportunidadesPage() {
 
   useEffect(() => {
     loadFundingRates();
+
+    // Cleanup: limpar timer ao desmontar componente
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
   }, []);
 
   const { isConnected, status, lastEvent } = useRealtimeTable<FundingRateData>({
     table: REALTIME_TABLES.FUNDING_RATES,
     event: REALTIME_EVENTS.INSERT,
     onInsert: (payload) => {
-      console.log('🔔 [Oportunidades] Novo funding rate inserido', (payload.new as any)?.coin);
-
       // Incrementa contador de atualizações
       updateCountRef.current++;
 
@@ -118,12 +123,15 @@ export default function OportunidadesPage() {
         clearTimeout(debounceTimerRef.current);
       }
 
-      // Aguarda 1 segundo sem novos INSERTs para disparar notificação única
+      // Aguarda 2 segundos sem novos INSERTs para disparar atualização única
       debounceTimerRef.current = setTimeout(() => {
         const count = updateCountRef.current;
-        console.log(`✅ [Oportunidades] ${count} moeda(s) atualizadas`);
+        console.log(`✅ [Oportunidades] ${count} moeda(s) atualizadas - recarregando dados`);
 
+        // Carrega dados apenas uma vez
         loadFundingRates();
+
+        // Mostra notificação única
         toast.success('Funding rates atualizados!', {
           id: 'funding-rates-update',
           description: `${count} moeda${count > 1 ? 's' : ''} atualizada${count > 1 ? 's' : ''}`,
@@ -132,7 +140,7 @@ export default function OportunidadesPage() {
 
         // Reset contador
         updateCountRef.current = 0;
-      }, 1000);
+      }, 2000);
     },
   });
 
