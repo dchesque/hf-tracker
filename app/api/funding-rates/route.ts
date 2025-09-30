@@ -21,37 +21,46 @@ export async function GET(request: Request) {
         Number(rate.hyperliquid_oi) >= minOi
     );
 
-    const opportunities = await Promise.all(
-      filteredRates.map(async (rate: any) => {
-        const { data: markets } = await supabase
-          .from("coin_markets")
-          .select("exchange_1, exchange_2")
-          .eq("coin_symbol", rate.coin)
-          .single();
+    const coinSymbols = filteredRates.map((r: any) => r.coin);
 
-        const binanceRate = rate.binance_rate ? Number(rate.binance_rate) : null;
-        const bybitRate = rate.bybit_rate ? Number(rate.bybit_rate) : null;
-        const hlRate = Number(rate.hyperliquid_rate);
+    const { data: marketsData } = await supabase
+      .from("coin_markets")
+      .select("coin_id, exchange_1, exchange_2, coins!inner(symbol)")
+      .in("coins.symbol", coinSymbols);
 
-        const spreads = [
-          binanceRate ? hlRate - binanceRate : null,
-          bybitRate ? hlRate - bybitRate : null,
-        ].filter((s) => s !== null);
+    const marketsMap = new Map();
+    (marketsData || []).forEach((m: any) => {
+      marketsMap.set(m.coins.symbol, {
+        exchange_1: m.exchange_1,
+        exchange_2: m.exchange_2
+      });
+    });
 
-        const spread = spreads.length > 0 ? Math.max(...(spreads as number[])) : 0;
+    const opportunities = filteredRates.map((rate: any) => {
+      const markets = marketsMap.get(rate.coin);
 
-        return {
-          coin: rate.coin,
-          hyperliquidRate: hlRate,
-          binanceRate: binanceRate,
-          bybitRate: bybitRate,
-          spread,
-          oi: Number(rate.hyperliquid_oi),
-          exchanges: [markets?.exchange_1, markets?.exchange_2].filter(Boolean),
-          scrapedAt: rate.scraped_at,
-        };
-      })
-    );
+      const binanceRate = rate.binance_rate ? Number(rate.binance_rate) : null;
+      const bybitRate = rate.bybit_rate ? Number(rate.bybit_rate) : null;
+      const hlRate = Number(rate.hyperliquid_rate);
+
+      const spreads = [
+        binanceRate ? hlRate - binanceRate : null,
+        bybitRate ? hlRate - bybitRate : null,
+      ].filter((s) => s !== null);
+
+      const spread = spreads.length > 0 ? Math.max(...(spreads as number[])) : 0;
+
+      return {
+        coin: rate.coin,
+        hyperliquidRate: hlRate,
+        binanceRate: binanceRate,
+        bybitRate: bybitRate,
+        spread,
+        oi: Number(rate.hyperliquid_oi),
+        exchanges: markets ? [markets.exchange_1, markets.exchange_2].filter(Boolean) : [],
+        scrapedAt: rate.scraped_at,
+      };
+    });
 
     opportunities.sort((a, b) => b.hyperliquidRate - a.hyperliquidRate);
 
