@@ -65,8 +65,10 @@ export default function HistoricoPage() {
 
       loadPositions();
       toast.success(`Posição fechada: ${coin}`, {
+        id: `position-closed-${(payload.new as any)?.id}`,
         description: `P&L: ${formatCurrency(Number(pnl))}`,
         className: isProfitable ? 'bg-green-950' : 'bg-red-950',
+        duration: 2000,
       });
 
       setHighlightedId((payload.new as any)?.id);

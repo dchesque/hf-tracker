@@ -51,7 +51,9 @@ export default function DashboardPage() {
       console.log('🔔 [Dashboard] Nova posição criada', payload.new);
       loadMetrics();
       toast.success('Nova posição aberta!', {
+        id: 'position-insert',
         description: `Posição em ${(payload.new as any)?.coin || 'moeda'}`,
+        duration: 2000,
       });
     },
     onUpdate: (payload) => {

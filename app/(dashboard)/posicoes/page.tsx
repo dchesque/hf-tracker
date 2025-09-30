@@ -67,7 +67,10 @@ export default function PosicoesPage() {
       console.log('🔔 [Posições] Nova posição criada', payload.new);
       loadPositions();
       const coin = (payload.new as any)?.coin_symbol || 'moeda';
-      toast.success(`Nova posição aberta: ${coin}`);
+      toast.success(`Nova posição aberta: ${coin}`, {
+        id: `position-insert-${(payload.new as any)?.id}`,
+        duration: 2000,
+      });
       setHighlightedId((payload.new as any)?.id);
       setTimeout(() => setHighlightedId(null), 2000);
     },

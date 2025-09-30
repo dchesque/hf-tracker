@@ -15,7 +15,9 @@ export default function ConfiguracoesPage() {
     onUpdate: (payload) => {
       console.log('🔔 [Configurações] Settings atualizados', payload.new);
       toast.info('Configurações sincronizadas', {
+        id: 'settings-update',
         description: 'Alterações detectadas em outro dispositivo',
+        duration: 2000,
       });
     },
   });

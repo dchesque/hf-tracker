@@ -109,7 +109,9 @@ export default function OportunidadesPage() {
       console.log('🔔 [Oportunidades] Novos funding rates inseridos');
       loadFundingRates();
       toast.success('Funding rates atualizados!', {
+        id: 'funding-rates-update',
         description: 'Novos dados disponíveis',
+        duration: 2000,
       });
     },
   });
