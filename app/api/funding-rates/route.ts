@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
   try {
@@ -7,44 +7,38 @@ export async function GET(request: Request) {
     const minRate = parseFloat(searchParams.get("minRate") || "0.001");
     const minOi = parseFloat(searchParams.get("minOi") || "100000");
 
-    const latestRates = await prisma.$queryRaw<any[]>`
-      SELECT DISTINCT ON (coin)
-        coin,
-        hyperliquid_oi as "hyperliquidOi",
-        hyperliquid_rate as "hyperliquidRate",
-        binance_rate as "binanceRate",
-        bybit_rate as "bybitRate",
-        scraped_at as "scrapedAt"
-      FROM funding_rates
-      WHERE hyperliquid_rate >= ${minRate}
-        AND hyperliquid_oi >= ${minOi}
-      ORDER BY coin, scraped_at DESC
-    `;
+    const supabase = await createClient();
+
+    const { data: latestRates, error } = await supabase.rpc(
+      "get_latest_funding_rates"
+    );
+
+    if (error) throw error;
+
+    const filteredRates = (latestRates || []).filter(
+      (rate: any) =>
+        Number(rate.hyperliquid_rate) >= minRate &&
+        Number(rate.hyperliquid_oi) >= minOi
+    );
 
     const opportunities = await Promise.all(
-      latestRates.map(async (rate) => {
-        const markets = await prisma.coinMarket.findFirst({
-          where: {
-            coin: {
-              symbol: rate.coin,
-            },
-          },
-          select: {
-            exchange1: true,
-            exchange2: true,
-          },
-        });
+      filteredRates.map(async (rate: any) => {
+        const { data: markets } = await supabase
+          .from("coin_markets")
+          .select("exchange_1, exchange_2")
+          .eq("coin_symbol", rate.coin)
+          .single();
 
-        const binanceRate = rate.binanceRate ? Number(rate.binanceRate) : null;
-        const bybitRate = rate.bybitRate ? Number(rate.bybitRate) : null;
-        const hlRate = Number(rate.hyperliquidRate);
+        const binanceRate = rate.binance_rate ? Number(rate.binance_rate) : null;
+        const bybitRate = rate.bybit_rate ? Number(rate.bybit_rate) : null;
+        const hlRate = Number(rate.hyperliquid_rate);
 
         const spreads = [
           binanceRate ? hlRate - binanceRate : null,
           bybitRate ? hlRate - bybitRate : null,
         ].filter((s) => s !== null);
 
-        const spread = spreads.length > 0 ? Math.max(...spreads) : 0;
+        const spread = spreads.length > 0 ? Math.max(...(spreads as number[])) : 0;
 
         return {
           coin: rate.coin,
@@ -52,9 +46,9 @@ export async function GET(request: Request) {
           binanceRate: binanceRate,
           bybitRate: bybitRate,
           spread,
-          oi: Number(rate.hyperliquidOi),
-          exchanges: [markets?.exchange1, markets?.exchange2].filter(Boolean),
-          scrapedAt: rate.scrapedAt,
+          oi: Number(rate.hyperliquid_oi),
+          exchanges: [markets?.exchange_1, markets?.exchange_2].filter(Boolean),
+          scrapedAt: rate.scraped_at,
         };
       })
     );

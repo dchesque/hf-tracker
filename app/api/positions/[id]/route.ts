@@ -1,25 +1,25 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const position = await prisma.position.findUnique({
-      where: { id: params.id },
-      include: {
-        coin: true,
-        snapshots: {
-          orderBy: { snapshotAt: "desc" },
-        },
-        alerts: {
-          orderBy: { createdAt: "desc" },
-        },
-      },
-    });
+    const supabase = await createClient();
 
-    if (!position) {
+    const { data: position, error } = await supabase
+      .from("positions")
+      .select(`
+        *,
+        coin:coins(*),
+        snapshots:position_snapshots(*),
+        alerts:position_alerts(*)
+      `)
+      .eq("id", params.id)
+      .single();
+
+    if (error || !position) {
       return NextResponse.json(
         { error: "Posição não encontrada" },
         { status: 404 }

@@ -1,30 +1,37 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 
 export async function GET() {
   try {
-    const openPositions = await prisma.position.findMany({
-      where: { status: "open" },
-      include: {
-        coin: true,
-      },
-    });
+    const supabase = await createClient();
 
-    const totalInvested = openPositions.reduce(
-      (sum, pos) => sum + Number(pos.totalCapital),
+    const { data: openPositions, error } = await supabase
+      .from("positions")
+      .select(`
+        *,
+        coin:coins(symbol, name)
+      `)
+      .eq("status", "open");
+
+    if (error) throw error;
+
+    const positions = openPositions || [];
+
+    const totalInvested = positions.reduce(
+      (sum, pos) => sum + Number(pos.total_capital),
       0
     );
 
-    const pnlTotal = openPositions.reduce(
-      (sum, pos) => sum + Number(pos.pnlNet),
+    const pnlTotal = positions.reduce(
+      (sum, pos) => sum + Number(pos.pnl_net),
       0
     );
 
     const pnlPercentage = totalInvested > 0 ? (pnlTotal / totalInvested) * 100 : 0;
 
-    const bestPosition = openPositions.length > 0
-      ? openPositions.reduce((best, current) =>
-          Number(current.pnlPercentage) > Number(best.pnlPercentage) ? current : best
+    const bestPosition = positions.length > 0
+      ? positions.reduce((best, current) =>
+          Number(current.pnl_percentage) > Number(best.pnl_percentage) ? current : best
         )
       : null;
 
@@ -32,12 +39,12 @@ export async function GET() {
       totalInvested,
       pnlTotal,
       pnlPercentage,
-      openPositions: openPositions.length,
+      openPositions: positions.length,
       bestPosition: bestPosition
         ? {
-            coin: bestPosition.coinSymbol,
-            pnl: Number(bestPosition.pnlNet),
-            roi: Number(bestPosition.pnlPercentage),
+            coin: bestPosition.coin_symbol,
+            pnl: Number(bestPosition.pnl_net),
+            roi: Number(bestPosition.pnl_percentage),
           }
         : null,
     });

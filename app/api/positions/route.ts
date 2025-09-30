@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
 
 const createPositionSchema = z.object({
@@ -22,33 +22,28 @@ export async function GET(request: Request) {
     const status = searchParams.get("status") || "open";
     const coinSymbol = searchParams.get("coinSymbol");
 
-    const where: any = { status };
+    const supabase = await createClient();
+
+    let query = supabase
+      .from("positions")
+      .select(`
+        *,
+        coin:coins(symbol, name),
+        snapshots:position_snapshots(*)!inner,
+        alerts:position_alerts(*)
+      `)
+      .eq("status", status)
+      .eq("alerts.is_active", true)
+      .eq("alerts.is_acknowledged", false)
+      .order("opened_at", { ascending: false });
+
     if (coinSymbol) {
-      where.coinSymbol = coinSymbol;
+      query = query.eq("coin_symbol", coinSymbol);
     }
 
-    const positions = await prisma.position.findMany({
-      where,
-      include: {
-        coin: {
-          select: {
-            symbol: true,
-            name: true,
-          },
-        },
-        snapshots: {
-          orderBy: { snapshotAt: "desc" },
-          take: 1,
-        },
-        alerts: {
-          where: {
-            isActive: true,
-            isAcknowledged: false,
-          },
-        },
-      },
-      orderBy: { openedAt: "desc" },
-    });
+    const { data: positions, error } = await query;
+
+    if (error) throw error;
 
     return NextResponse.json(positions);
   } catch (error) {
@@ -65,11 +60,15 @@ export async function POST(request: Request) {
     const body = await request.json();
     const validatedData = createPositionSchema.parse(body);
 
-    const coin = await prisma.coin.findUnique({
-      where: { symbol: validatedData.coinSymbol },
-    });
+    const supabase = await createClient();
 
-    if (!coin) {
+    const { data: coin, error: coinError } = await supabase
+      .from("coins")
+      .select("id")
+      .eq("symbol", validatedData.coinSymbol)
+      .single();
+
+    if (coinError || !coin) {
       return NextResponse.json(
         { error: "Moeda não encontrada" },
         { status: 404 }
@@ -79,41 +78,45 @@ export async function POST(request: Request) {
     const shortSize = validatedData.shortAmount / validatedData.shortEntryPrice;
     const spotQuantity = validatedData.spotAmount / validatedData.spotEntryPrice;
     const openedAt = validatedData.openedAt
-      ? new Date(validatedData.openedAt)
-      : new Date();
+      ? new Date(validatedData.openedAt).toISOString()
+      : new Date().toISOString();
 
-    const position = await prisma.position.create({
-      data: {
-        coinId: coin.id,
-        coinSymbol: validatedData.coinSymbol,
-        totalCapital: validatedData.totalCapital,
-        shortAmount: validatedData.shortAmount,
-        shortEntryPrice: validatedData.shortEntryPrice,
-        shortSize,
-        shortEntryFundingRate: validatedData.shortEntryFundingRate,
-        spotAmount: validatedData.spotAmount,
-        spotExchange: validatedData.spotExchange,
-        spotEntryPrice: validatedData.spotEntryPrice,
-        spotQuantity,
-        tradingFees: validatedData.tradingFees,
+    const { data: position, error: positionError } = await supabase
+      .from("positions")
+      .insert({
+        coin_id: coin.id,
+        coin_symbol: validatedData.coinSymbol,
+        total_capital: validatedData.totalCapital,
+        short_amount: validatedData.shortAmount,
+        short_entry_price: validatedData.shortEntryPrice,
+        short_size: shortSize,
+        short_entry_funding_rate: validatedData.shortEntryFundingRate,
+        spot_amount: validatedData.spotAmount,
+        spot_exchange: validatedData.spotExchange,
+        spot_entry_price: validatedData.spotEntryPrice,
+        spot_quantity: spotQuantity,
+        trading_fees: validatedData.tradingFees,
         notes: validatedData.notes,
-        openedAt,
+        opened_at: openedAt,
         status: "open",
-        snapshots: {
-          create: {
-            currentFundingRate: validatedData.shortEntryFundingRate,
-            fundingAccumulated: 0,
-            pnlFunding: 0,
-            pnlNet: -validatedData.tradingFees,
-            snapshotAt: openedAt,
-          },
-        },
-      },
-      include: {
-        coin: true,
-        snapshots: true,
-      },
-    });
+      })
+      .select()
+      .single();
+
+    if (positionError) throw positionError;
+
+    const { error: snapshotError } = await supabase
+      .from("position_snapshots")
+      .insert({
+        position_id: position.id,
+        current_funding_rate: validatedData.shortEntryFundingRate,
+        funding_accumulated: 0,
+        pnl_funding: 0,
+        pnl_net: -validatedData.tradingFees,
+        snapshot_at: openedAt,
+      });
+
+    if (snapshotError) throw snapshotError;
 
     return NextResponse.json(position, { status: 201 });
   } catch (error) {

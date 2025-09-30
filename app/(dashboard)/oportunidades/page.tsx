@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { FundingBadge } from "@/components/shared/FundingBadge";
@@ -15,34 +15,28 @@ import { Search } from "lucide-react";
 
 interface FundingRateData {
   coin: string;
-  hyperliquidOi: number;
-  hyperliquidRate: number;
-  binanceRate: number | null;
-  bybitRate: number | null;
-  binanceHlArb: number | null;
-  bybitHlArb: number | null;
-  scrapedAt: Date;
+  hyperliquid_oi: number;
+  hyperliquid_rate: number;
+  binance_rate: number | null;
+  bybit_rate: number | null;
+  binance_hl_arb: number | null;
+  bybit_hl_arb: number | null;
+  scraped_at: string;
 }
 
 async function getLatestFundingRates(): Promise<FundingRateData[]> {
-  const latestRates = await prisma.$queryRaw<FundingRateData[]>`
-    SELECT DISTINCT ON (coin)
-      coin,
-      hyperliquid_oi as "hyperliquidOi",
-      hyperliquid_rate as "hyperliquidRate",
-      binance_rate as "binanceRate",
-      bybit_rate as "bybitRate",
-      binance_hl_arb as "binanceHlArb",
-      bybit_hl_arb as "bybitHlArb",
-      scraped_at as "scrapedAt"
-    FROM funding_rates
-    WHERE hyperliquid_rate IS NOT NULL
-      AND hyperliquid_oi IS NOT NULL
-    ORDER BY coin, scraped_at DESC
-  `;
+  const supabase = await createClient();
 
-  return latestRates.sort(
-    (a, b) => Number(b.hyperliquidRate) - Number(a.hyperliquidRate)
+  const { data, error } = await supabase.rpc('get_latest_funding_rates');
+
+  if (error) {
+    console.error('Error fetching funding rates:', error);
+    return [];
+  }
+
+  return (data || []).sort(
+    (a: FundingRateData, b: FundingRateData) =>
+      Number(b.hyperliquid_rate) - Number(a.hyperliquid_rate)
   );
 }
 
@@ -128,18 +122,18 @@ export default async function OportunidadesPage({
                         {opp.coin}
                       </TableCell>
                       <TableCell className="text-right">
-                        {formatLargeNumber(Number(opp.hyperliquidOi))}
+                        {formatLargeNumber(Number(opp.hyperliquid_oi))}
                       </TableCell>
                       <TableCell className="text-right">
                         <FundingBadge
-                          rate={Number(opp.hyperliquidRate)}
+                          rate={Number(opp.hyperliquid_rate)}
                           showIcon={false}
                         />
                       </TableCell>
                       <TableCell className="text-right">
-                        {opp.binanceRate !== null ? (
+                        {opp.binance_rate !== null ? (
                           <FundingBadge
-                            rate={Number(opp.binanceRate)}
+                            rate={Number(opp.binance_rate)}
                             showIcon={false}
                           />
                         ) : (
@@ -147,9 +141,9 @@ export default async function OportunidadesPage({
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        {opp.bybitRate !== null ? (
+                        {opp.bybit_rate !== null ? (
                           <FundingBadge
-                            rate={Number(opp.bybitRate)}
+                            rate={Number(opp.bybit_rate)}
                             showIcon={false}
                           />
                         ) : (
@@ -157,9 +151,9 @@ export default async function OportunidadesPage({
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        {opp.binanceHlArb !== null ? (
+                        {opp.binance_hl_arb !== null ? (
                           <FundingBadge
-                            rate={Number(opp.binanceHlArb)}
+                            rate={Number(opp.binance_hl_arb)}
                             showIcon={false}
                           />
                         ) : (
@@ -167,9 +161,9 @@ export default async function OportunidadesPage({
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        {opp.bybitHlArb !== null ? (
+                        {opp.bybit_hl_arb !== null ? (
                           <FundingBadge
-                            rate={Number(opp.bybitHlArb)}
+                            rate={Number(opp.bybit_hl_arb)}
                             showIcon={false}
                           />
                         ) : (
@@ -188,7 +182,7 @@ export default async function OportunidadesPage({
       {filteredOpportunities.length > 0 && (
         <div className="text-sm text-gray-500 text-center">
           Mostrando {filteredOpportunities.length} moeda(s) • Última atualização:{" "}
-          {new Date(filteredOpportunities[0].scrapedAt).toLocaleString("pt-BR")}
+          {new Date(filteredOpportunities[0].scraped_at).toLocaleString("pt-BR")}
         </div>
       )}
     </div>

@@ -1,37 +1,148 @@
-# dependencies
+# Dependencies
 /node_modules
 /.pnp
 .pnp.js
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
 
-# testing
+# Testing
 /coverage
+*.lcov
+.nyc_output
+/test-results/
+/playwright-report/
+/playwright/.cache/
 
-# next.js
+# Next.js
 /.next/
 /out/
+.next
+next-env.d.ts
 
-# production
+# Production
 /build
+/dist
 
-# misc
+# Misc
 .DS_Store
 *.pem
+.cache
+.temp
+*.log
+*.swp
+*.swo
+*~
 
-# debug
+# Debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.pnpm-debug.log*
+lerna-debug.log*
 
-# local env files
-.env*.local
+# Environment Variables
 .env
+.env*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# vercel
+# Vercel
 .vercel
+.vercel.json
 
-# typescript
+# TypeScript
 *.tsbuildinfo
-next-env.d.ts
+dist
+build
+*.d.ts.map
 
-# prisma
-prisma/.env
+# IDEs and Editors
+/.vscode/*
+!/.vscode/extensions.json
+!/.vscode/settings.json
+.idea
+.vscode/mcp.json
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Supabase
+.supabase
+
+# Temporary Files
+*.tmp
+*.temp
+nul
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Package Manager
+.pnpm-store
+.npm
+.yarn-integrity
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Diagnostic reports
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Directory for instrumented libs
+lib-cov
+
+# Optional eslint cache
+.eslintcache
+
+# Optional stylelint cache
+.stylelintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Stores VSCode versions used for testing VSCode extensions
+.vscode-test
+
+# Turbo
+.turbo
+
+# Sentry
+.sentryclirc
+
+# Local Netlify folder
+.netlify

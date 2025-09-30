@@ -1,4 +1,10 @@
-📋 PRD Completo - Hyperliquid Funding Tracker1. Visão Geral do Produto1.1 Nome do Produto
+📋 PRD Completo - Hyperliquid Funding Tracker
+
+> **📝 Nota de Implementação:** Este projeto foi implementado usando **Supabase** (PostgreSQL) ao invés de Prisma. Todas as interações com o banco de dados usam `@supabase/supabase-js` e `@supabase/ssr`. Veja `SUPABASE_SETUP.md` para configuração.
+
+1. Visão Geral do Produto
+
+1.1 Nome do Produto
 Hyperliquid Funding Tracker - Sistema de monitoramento e gestão de posições de arbitragem de funding rates1.2 Objetivo
 Criar uma aplicação web que permita ao usuário monitorar oportunidades de arbitragem de funding rates entre exchanges de criptomoedas, gerenciar posições abertas e acompanhar o P&L acumulado através de uma estratégia market-neutral (short perpétuo + compra spot).1.3 Problema que Resolve
 
@@ -266,59 +272,91 @@ Exchanges para compra SPOT (ordenar por preferência):
 Tema: [Dark Mode] (locked - apenas dark mode na v1)
 Moeda de visualização: [USD] (BRL futuramente)
 
-[Salvar Aparência]4. Schema do Banco de Dados (Prisma)prisma// schema.prisma
+[Salvar Aparência]4. Schema do Banco de Dados (Supabase)
 
-generator client {
-  provider = "prisma-client-js"
-}
+**Database:** PostgreSQL via Supabase
+**Cliente:** @supabase/supabase-js + @supabase/ssr
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
+**Configuração:**
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://xqxxpjjaayvjmmqdorcj.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-anon-key>
+```
 
-// ==========================================
-// TABELAS EXISTENTES (já no Supabase)
-// ==========================================
+**Clientes:**
+- `lib/supabase/server.ts` - Server Components e API Routes
+- `lib/supabase/client.ts` - Client Components
 
-model Coin {
-  id                  Int       @id @default(autoincrement())
-  symbol              String    @unique @db.VarChar(20)
-  name                String?   @db.VarChar(100)
-  isActive            Boolean   @default(true) @map("is_active")
-  minOiThreshold      Decimal?  @default(100000) @map("min_oi_threshold") @db.Decimal(20, 2)
-  coingeckoId         String?   @map("coingecko_id") @db.VarChar(100)
-  lastMarketUpdate    DateTime? @map("last_market_update") @db.Timestamptz()
-  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+**Função RPC:**
+```sql
+CREATE OR REPLACE FUNCTION get_latest_funding_rates()
+RETURNS TABLE (
+  coin TEXT,
+  hyperliquid_oi NUMERIC,
+  hyperliquid_rate NUMERIC,
+  binance_rate NUMERIC,
+  bybit_rate NUMERIC,
+  binance_hl_arb NUMERIC,
+  bybit_hl_arb NUMERIC,
+  scraped_at TIMESTAMP WITH TIME ZONE
+)
+LANGUAGE SQL
+AS $$
+  SELECT DISTINCT ON (coin)
+    coin,
+    hyperliquid_oi,
+    hyperliquid_rate,
+    binance_rate,
+    bybit_rate,
+    binance_hl_arb,
+    bybit_hl_arb,
+    scraped_at
+  FROM funding_rates
+  WHERE hyperliquid_rate IS NOT NULL
+    AND hyperliquid_oi IS NOT NULL
+  ORDER BY coin, scraped_at DESC;
+$$;
+```
 
-  fundingRates        FundingRate[]
-  coinMarkets         CoinMarket[]
-  positions           Position[]
+**Estrutura de Tabelas:**
 
-  @@map("coins")
-}
+## TABELAS EXISTENTES (já no Supabase)
 
-model FundingRate {
-  id                  BigInt    @id @default(autoincrement())
-  coinId              Int?      @map("coin_id")
-  coin                String    @db.VarChar(20)
-  hyperliquidOi       Decimal?  @map("hyperliquid_oi") @db.Decimal(20, 2)
-  hyperliquidRate     Decimal?  @map("hyperliquid_rate") @db.Decimal(10, 8)
-  binanceRate         Decimal?  @map("binance_rate") @db.Decimal(10, 8)
-  bybitRate           Decimal?  @map("bybit_rate") @db.Decimal(10, 8)
-  binanceHlArb        Decimal?  @map("binance_hl_arb") @db.Decimal(10, 8)
-  bybitHlArb          Decimal?  @map("bybit_hl_arb") @db.Decimal(10, 8)
-  scrapedAt           DateTime  @default(dbgenerated("(now() AT TIME ZONE 'America/Sao_Paulo'::text)")) @map("scraped_at") @db.Timestamptz()
-  scrapedAtBr         DateTime? @default(dbgenerated("(now() AT TIME ZONE 'America/Sao_Paulo'::text)")) @map("scraped_at_br") @db.Timestamptz()
-  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+### coins
+```sql
+CREATE TABLE coins (
+  id SERIAL PRIMARY KEY,
+  symbol VARCHAR(20) UNIQUE NOT NULL,
+  name VARCHAR(100),
+  is_active BOOLEAN DEFAULT true,
+  min_oi_threshold DECIMAL(20, 2) DEFAULT 100000,
+  coingecko_id VARCHAR(100),
+  last_market_update TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
 
-  coinRelation        Coin?     @relation(fields: [coinId], references: [id], onDelete: Cascade)
+### funding_rates
+```sql
+CREATE TABLE funding_rates (
+  id BIGSERIAL PRIMARY KEY,
+  coin_id INT REFERENCES coins(id) ON DELETE CASCADE,
+  coin VARCHAR(20) NOT NULL,
+  hyperliquid_oi DECIMAL(20, 2),
+  hyperliquid_rate DECIMAL(10, 8),
+  binance_rate DECIMAL(10, 8),
+  bybit_rate DECIMAL(10, 8),
+  binance_hl_arb DECIMAL(10, 8),
+  bybit_hl_arb DECIMAL(10, 8),
+  scraped_at TIMESTAMPTZ DEFAULT NOW(),
+  scraped_at_br TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-  @@index([coin, scrapedAt])
-  @@index([scrapedAt])
-  @@map("funding_rates")
-}
+CREATE INDEX idx_funding_rates_coin_scraped ON funding_rates(coin, scraped_at);
+CREATE INDEX idx_funding_rates_scraped ON funding_rates(scraped_at);
+```
 
 model ScrapingMetadata {
   id                  Int       @id @default(autoincrement())
@@ -386,16 +424,22 @@ model SystemConfig {
   @@map("system_config")
 }
 
-// ==========================================
-// NOVAS TABELAS (para o App)
-// ==========================================
+**Outras tabelas existentes:** `scraping_metadata`, `arbitrage_alerts`, `coin_markets`, `system_config`
 
-model Position {
-  id                    String    @id @default(cuid())
-  userId                String?   @map("user_id") @db.VarChar(100) // Para multi-user no futuro
-  coinId                Int       @map("coin_id")
-  coinSymbol            String    @map("coin_symbol") @db.VarChar(20)
-  status                String    @default("open") @db.VarChar(20) // open, closed
+## NOVAS TABELAS (para o App)
+
+> **Nota:** As definições de tabelas abaixo estão em formato de referência (Prisma-style). Na implementação real, todas as consultas são feitas via Supabase Client usando `from()`, `select()`, `insert()`, `update()`, etc. As tabelas devem ser criadas no Supabase usando SQL ou via interface.
+
+### positions
+
+**Estrutura SQL:**
+```sql
+CREATE TABLE positions (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  user_id VARCHAR(100),
+  coin_id INT NOT NULL REFERENCES coins(id),
+  coin_symbol VARCHAR(20) NOT NULL,
+  status VARCHAR(20) DEFAULT 'open'
   
   // Capital
   totalCapital          Decimal   @map("total_capital") @db.Decimal(20, 2)
@@ -666,24 +710,27 @@ Bybit API
 
 Endpoint: GET /v5/market/funding/history
 Params: category=linear&symbol=BTCUSDT&limit=1
-7. Tecnologias e Stack7.1 Frontend
+7. Tecnologias e Stack
 
-Framework: Next.js 15 (App Router)
-Linguagem: TypeScript
-Styling: Tailwind CSS
-Componentes: shadcn/ui
-Ícones: Lucide React
-Gráficos: Recharts
-Formulários: React Hook Form + Zod
-Animações: Framer Motion
-Notificações: Sonner (toasts)
+7.1 Frontend
+
+- **Framework:** Next.js 15 (App Router)
+- **Linguagem:** TypeScript
+- **Styling:** Tailwind CSS v4 (@tailwindcss/postcss)
+- **Componentes:** shadcn/ui style (manual components)
+- **Ícones:** Lucide React
+- **Gráficos:** Recharts
+- **Formulários:** React Hook Form + Zod
+- **Animações:** Framer Motion
+- **Notificações:** Sonner (toasts)
+
 7.2 Backend
 
-Database: PostgreSQL (Supabase)
-ORM: Prisma
-API: Next.js API Routes
-Auth: Supabase Auth (futuro)
-Background Jobs: Supabase Edge Functions + pg_cron
+- **Database:** PostgreSQL (Supabase)
+- **Cliente DB:** @supabase/supabase-js + @supabase/ssr
+- **API:** Next.js API Routes
+- **Auth:** Supabase Auth (futuro)
+- **Background Jobs:** N8N (scraping externo) + Supabase Edge Functions
 7.3 Deployment
 
 Hosting: Vercel (Next.js)

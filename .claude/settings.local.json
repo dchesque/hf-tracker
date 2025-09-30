@@ -7,7 +7,11 @@
       "Bash(del tailwind.config.ts)",
       "Bash(npm run dev:*)",
       "Bash(npx -y @supabase/mcp-server-supabase:*)",
-      "Bash(npx tsx:*)"
+      "Bash(npx tsx:*)",
+      "Bash(npx prisma generate:*)",
+      "WebFetch(domain:supabase.com)",
+      "Bash(npm uninstall:*)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []

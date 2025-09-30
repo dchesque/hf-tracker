@@ -1,18 +1,17 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 
 export async function GET() {
   try {
-    const coins = await prisma.coin.findMany({
-      where: { isActive: true },
-      orderBy: { symbol: "asc" },
-      select: {
-        id: true,
-        symbol: true,
-        name: true,
-        coingeckoId: true,
-      },
-    });
+    const supabase = await createClient();
+
+    const { data: coins, error } = await supabase
+      .from("coins")
+      .select("id, symbol, name, coingecko_id")
+      .eq("is_active", true)
+      .order("symbol", { ascending: true });
+
+    if (error) throw error;
 
     return NextResponse.json(coins);
   } catch (error) {
