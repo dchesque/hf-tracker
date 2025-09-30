@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -68,6 +68,8 @@ export default function OportunidadesPage() {
   const [sortField, setSortField] = useState<SortField>('hyperliquid_rate');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [lastScrapedAt, setLastScrapedAt] = useState<string | null>(null);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const updateCountRef = useRef(0);
 
   const loadFundingRates = async () => {
     try {
@@ -106,13 +108,31 @@ export default function OportunidadesPage() {
     table: REALTIME_TABLES.FUNDING_RATES,
     event: REALTIME_EVENTS.INSERT,
     onInsert: (payload) => {
-      console.log('🔔 [Oportunidades] Novos funding rates inseridos');
-      loadFundingRates();
-      toast.success('Funding rates atualizados!', {
-        id: 'funding-rates-update',
-        description: 'Novos dados disponíveis',
-        duration: 2000,
-      });
+      console.log('🔔 [Oportunidades] Novo funding rate inserido', (payload.new as any)?.coin);
+
+      // Incrementa contador de atualizações
+      updateCountRef.current++;
+
+      // Limpa timer anterior se existir
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+
+      // Aguarda 1 segundo sem novos INSERTs para disparar notificação única
+      debounceTimerRef.current = setTimeout(() => {
+        const count = updateCountRef.current;
+        console.log(`✅ [Oportunidades] ${count} moeda(s) atualizadas`);
+
+        loadFundingRates();
+        toast.success('Funding rates atualizados!', {
+          id: 'funding-rates-update',
+          description: `${count} moeda${count > 1 ? 's' : ''} atualizada${count > 1 ? 's' : ''}`,
+          duration: 2000,
+        });
+
+        // Reset contador
+        updateCountRef.current = 0;
+      }, 1000);
     },
   });
 
