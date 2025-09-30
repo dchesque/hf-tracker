@@ -15,11 +15,11 @@ import {
 import { useState } from "react";
 
 const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Posições", href: "/posicoes", icon: Briefcase },
-  { name: "Oportunidades", href: "/oportunidades", icon: Target },
-  { name: "Histórico", href: "/historico", icon: History },
-  { name: "Configurações", href: "/configuracoes", icon: Settings },
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, comingSoon: true },
+  { name: "Posições", href: "/posicoes", icon: Briefcase, comingSoon: true },
+  { name: "Oportunidades", href: "/oportunidades", icon: Target, comingSoon: false },
+  { name: "Histórico", href: "/historico", icon: History, comingSoon: true },
+  { name: "Configurações", href: "/configuracoes", icon: Settings, comingSoon: true },
 ];
 
 export function Sidebar() {
@@ -57,19 +57,34 @@ export function Sidebar() {
                 const isActive = pathname.startsWith(item.href);
                 return (
                   <li key={item.name}>
-                    <Link
-                      href={item.href}
-                      onClick={() => setIsOpen(false)}
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm font-medium",
-                        isActive
-                          ? "bg-blue-600 text-white"
-                          : "text-gray-400 hover:bg-gray-800 hover:text-gray-100"
-                      )}
-                    >
-                      <item.icon size={20} />
-                      {item.name}
-                    </Link>
+                    {item.comingSoon ? (
+                      <div
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium cursor-not-allowed opacity-50",
+                          "text-gray-500"
+                        )}
+                      >
+                        <item.icon size={20} />
+                        <span className="flex-1">{item.name}</span>
+                        <span className="text-xs bg-gray-800 px-2 py-0.5 rounded-full text-gray-400">
+                          Em breve
+                        </span>
+                      </div>
+                    ) : (
+                      <Link
+                        href={item.href}
+                        onClick={() => setIsOpen(false)}
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm font-medium",
+                          isActive
+                            ? "bg-blue-600 text-white"
+                            : "text-gray-400 hover:bg-gray-800 hover:text-gray-100"
+                        )}
+                      >
+                        <item.icon size={20} />
+                        {item.name}
+                      </Link>
+                    )}
                   </li>
                 );
               })}
