@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { REALTIME_CONFIG, RealtimeEvent } from '@/lib/supabase/realtime-config';
 
-interface UseRealtimeTableOptions<T> {
+interface UseRealtimeTableOptions<T extends Record<string, any>> {
   table: string;
   event?: RealtimeEvent;
   filter?: string;
@@ -23,7 +23,7 @@ interface UseRealtimeTableReturn {
   lastEvent: Date | null;
 }
 
-export function useRealtimeTable<T = any>(
+export function useRealtimeTable<T extends Record<string, any> = Record<string, any>>(
   options: UseRealtimeTableOptions<T>
 ): UseRealtimeTableReturn {
   const {
