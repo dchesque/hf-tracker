@@ -1,6 +1,17 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+interface Opportunity {
+  coin: string;
+  hyperliquidRate: number;
+  binanceRate: number | null;
+  bybitRate: number | null;
+  spread: number;
+  oi: number;
+  exchanges: string[];
+  scrapedAt: string;
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -62,7 +73,7 @@ export async function GET(request: Request) {
       };
     });
 
-    opportunities.sort((a, b) => b.hyperliquidRate - a.hyperliquidRate);
+    opportunities.sort((a: Opportunity, b: Opportunity) => b.hyperliquidRate - a.hyperliquidRate);
 
     return NextResponse.json(opportunities);
   } catch (error) {
