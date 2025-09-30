@@ -38,11 +38,12 @@ export default function HistoricoPage() {
     try {
       const res = await fetch('/api/positions?status=closed');
       const data = await res.json();
-      setPositions(data);
-      console.log(`✅ [Histórico] Dados atualizados: ${data.length} posições fechadas`);
+      setPositions(Array.isArray(data) ? data : []);
+      console.log(`✅ [Histórico] Dados atualizados: ${Array.isArray(data) ? data.length : 0} posições fechadas`);
     } catch (error) {
       console.error('❌ [Histórico] Error fetching history:', error);
       toast.error('Erro ao carregar histórico');
+      setPositions([]);
     } finally {
       setLoading(false);
     }
@@ -74,6 +75,10 @@ export default function HistoricoPage() {
   });
 
   const stats = useMemo(() => {
+    if (!Array.isArray(positions)) {
+      return { totalTrades: 0, winRate: 0, bestTrade: null, worstTrade: null, totalProfit: 0 };
+    }
+
     const totalTrades = positions.length;
     const profitableTrades = positions.filter((p) => Number(p.pnlNet) >= 0).length;
     const winRate = totalTrades > 0 ? (profitableTrades / totalTrades) * 100 : 0;

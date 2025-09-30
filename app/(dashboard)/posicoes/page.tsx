@@ -44,11 +44,12 @@ export default function PosicoesPage() {
 
       const res = await fetch(url);
       const data = await res.json();
-      setPositions(data);
-      console.log(`✅ [Posições] Dados atualizados: ${data.length} posições carregadas`);
+      setPositions(Array.isArray(data) ? data : []);
+      console.log(`✅ [Posições] Dados atualizados: ${Array.isArray(data) ? data.length : 0} posições carregadas`);
     } catch (error) {
       console.error('❌ [Posições] Error fetching positions:', error);
       toast.error('Erro ao carregar posições');
+      setPositions([]);
     } finally {
       setLoading(false);
     }

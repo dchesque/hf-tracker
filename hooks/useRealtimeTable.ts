@@ -46,6 +46,18 @@ export function useRealtimeTable<T = any>(
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Store callbacks in refs to avoid recreation
+  const onInsertRef = useRef(onInsert);
+  const onUpdateRef = useRef(onUpdate);
+  const onDeleteRef = useRef(onDelete);
+
+  // Update refs when callbacks change
+  useEffect(() => {
+    onInsertRef.current = onInsert;
+    onUpdateRef.current = onUpdate;
+    onDeleteRef.current = onDelete;
+  }, [onInsert, onUpdate, onDelete]);
+
   const cleanup = useCallback(() => {
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
@@ -66,19 +78,19 @@ export function useRealtimeTable<T = any>(
       switch (payload.eventType) {
         case 'INSERT':
           console.log(`🔄 [Realtime] Novo evento INSERT em ${table}`, payload.new);
-          onInsert?.(payload);
+          onInsertRef.current?.(payload);
           break;
         case 'UPDATE':
           console.log(`🔄 [Realtime] Novo evento UPDATE em ${table}`, payload.new);
-          onUpdate?.(payload);
+          onUpdateRef.current?.(payload);
           break;
         case 'DELETE':
           console.log(`🔄 [Realtime] Novo evento DELETE em ${table}`, payload.old);
-          onDelete?.(payload);
+          onDeleteRef.current?.(payload);
           break;
       }
     },
-    [table, onInsert, onUpdate, onDelete]
+    [table]
   );
 
   const connect = useCallback(() => {
@@ -87,8 +99,13 @@ export function useRealtimeTable<T = any>(
       return;
     }
 
+    // Don't reconnect if already connected
+    if (channelRef.current) {
+      console.log(`⚠️ [Realtime] Já conectado ao canal: ${table}_realtime`);
+      return;
+    }
+
     try {
-      cleanup();
       setStatus('connecting');
       setError(null);
 
@@ -127,7 +144,9 @@ export function useRealtimeTable<T = any>(
             setStatus('error');
             setError(err || new Error('Canal error'));
 
-            // Tentar reconectar
+            // Cleanup and attempt reconnect
+            channelRef.current = null;
+
             if (reconnectAttemptsRef.current < REALTIME_CONFIG.maxReconnectAttempts) {
               reconnectAttemptsRef.current++;
               const delay = REALTIME_CONFIG.reconnectDelay * reconnectAttemptsRef.current;
@@ -159,7 +178,7 @@ export function useRealtimeTable<T = any>(
       setStatus('error');
       setIsConnected(false);
     }
-  }, [enabled, table, event, schema, filter, handlePayload, cleanup]);
+  }, [enabled, table, event, schema, filter, handlePayload]);
 
   useEffect(() => {
     connect();

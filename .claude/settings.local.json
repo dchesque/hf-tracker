@@ -14,7 +14,9 @@
       "Bash(grep:*)",
       "Bash(find:*)",
       "Bash(cat:*)",
-      "Bash(source .env)"
+      "Bash(source .env)",
+      "Bash(npx shadcn@latest add:*)",
+      "Read(//d/Users/OneDrive/Imagens/Screenshots/**)"
     ],
     "deny": [],
     "ask": []
