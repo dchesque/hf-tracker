@@ -7,6 +7,14 @@ import { Input } from '@/components/ui/input';
 import { FundingBadge } from '@/components/shared/FundingBadge';
 import { RealtimeIndicator } from '@/components/shared/RealtimeIndicator';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import {
   Table,
   TableBody,
   TableCell,
@@ -15,7 +23,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatLargeNumber, formatCurrency, formatPercentage } from '@/lib/utils';
-import { Search, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, Rocket } from 'lucide-react';
+import { Search, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, Rocket, ExternalLink } from 'lucide-react';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { REALTIME_TABLES, REALTIME_EVENTS } from '@/lib/supabase/realtime-config';
 import { toast } from 'sonner';
@@ -41,6 +49,11 @@ type SortDirection = 'asc' | 'desc';
 const getCoinGeckoSearchUrl = (symbol: string): string => {
   const query = encodeURIComponent(`Coingecko $${symbol.toUpperCase()}`);
   return `https://www.google.com/search?q=${query}`;
+};
+
+// Função para gerar URL da Hyperliquid
+const getHyperliquidUrl = (symbol: string): string => {
+  return `https://app.hyperliquid.xyz/trade/${symbol}`;
 };
 
 // Valores no banco são POR HORA
@@ -369,6 +382,125 @@ export default function OportunidadesPage() {
                       </div>
                     </div>
                   </div>
+
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="w-full mt-2">
+                        Ver mais
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle className="text-2xl font-bold font-mono">
+                          {opp.coin}
+                        </DialogTitle>
+                        <DialogDescription>
+                          Informações detalhadas e links úteis
+                        </DialogDescription>
+                      </DialogHeader>
+
+                      <div className="space-y-6">
+                        {/* Taxa Anual */}
+                        <div className="border rounded-lg p-4 bg-gray-900/50">
+                          <p className="text-sm text-gray-400 mb-1">Taxa Anual</p>
+                          <div className="text-3xl font-bold text-green-500">
+                            {formatPercentage(yearlyRate)}
+                          </div>
+                        </div>
+
+                        {/* Open Interest */}
+                        <div className="border rounded-lg p-4 bg-gray-900/50">
+                          <p className="text-sm text-gray-400 mb-1">Hyperliquid Open Interest</p>
+                          <div className="text-2xl font-bold">
+                            {formatLargeNumber(Number(opp.hyperliquid_oi))}
+                          </div>
+                        </div>
+
+                        {/* Retorno Anual */}
+                        <div className="border rounded-lg p-4 bg-gray-900/50">
+                          <p className="text-sm text-gray-400 mb-2">Retorno anual com $1000 (50% exposto = $500)</p>
+                          <div className="text-2xl font-semibold text-green-400">
+                            {formatCurrency(returns.yearly)}
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">Valor sobre os $500 expostos</p>
+                        </div>
+
+                        {/* Retornos por Período */}
+                        <div className="border rounded-lg p-4 bg-gray-900/50">
+                          <p className="text-sm text-gray-400 mb-3">Retorno sobre $500 expostos:</p>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="border-l-2 border-green-500 pl-3">
+                              <span className="text-xs text-gray-400">1 hora</span>
+                              <div className="font-semibold text-green-400">
+                                {formatCurrency(returns.hourly)}
+                              </div>
+                              <span className="text-xs text-gray-500">{formatPercentage(opp.hyperliquid_rate)}</span>
+                            </div>
+                            <div className="border-l-2 border-green-500 pl-3">
+                              <span className="text-xs text-gray-400">6 horas</span>
+                              <div className="font-semibold text-green-400">
+                                {formatCurrency(returns.sixHours)}
+                              </div>
+                              <span className="text-xs text-gray-500">{formatPercentage(opp.hyperliquid_rate * 6)}</span>
+                            </div>
+                            <div className="border-l-2 border-green-500 pl-3">
+                              <span className="text-xs text-gray-400">12 horas</span>
+                              <div className="font-semibold text-green-400">
+                                {formatCurrency(returns.twelveHours)}
+                              </div>
+                              <span className="text-xs text-gray-500">{formatPercentage(opp.hyperliquid_rate * 12)}</span>
+                            </div>
+                            <div className="border-l-2 border-green-500 pl-3">
+                              <span className="text-xs text-gray-400">24 horas</span>
+                              <div className="font-semibold text-green-400">
+                                {formatCurrency(returns.daily)}
+                              </div>
+                              <span className="text-xs text-gray-500">{formatPercentage(opp.hyperliquid_rate * 24)}</span>
+                            </div>
+                            <div className="border-l-2 border-green-500 pl-3">
+                              <span className="text-xs text-gray-400">7 dias</span>
+                              <div className="font-semibold text-green-400">
+                                {formatCurrency(returns.weekly)}
+                              </div>
+                              <span className="text-xs text-gray-500">{formatPercentage(opp.hyperliquid_rate * 24 * 7)}</span>
+                            </div>
+                            <div className="border-l-2 border-green-500 pl-3">
+                              <span className="text-xs text-gray-400">30 dias</span>
+                              <div className="font-semibold text-green-400">
+                                {formatCurrency(returns.monthly)}
+                              </div>
+                              <span className="text-xs text-gray-500">{formatPercentage(opp.hyperliquid_rate * 24 * 30)}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Links Externos */}
+                        <div className="border rounded-lg p-4 bg-gray-900/50">
+                          <p className="text-sm text-gray-400 mb-3">Links Úteis</p>
+                          <div className="flex flex-col gap-2">
+                            <a
+                              href={getHyperliquidUrl(opp.coin)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center justify-between p-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                            >
+                              <span className="font-semibold">Negociar na Hyperliquid</span>
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                            <a
+                              href={getCoinGeckoSearchUrl(opp.coin)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center justify-between p-3 bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors"
+                            >
+                              <span className="font-semibold">Ver no CoinGecko</span>
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </CardContent>
               </Card>
             );
