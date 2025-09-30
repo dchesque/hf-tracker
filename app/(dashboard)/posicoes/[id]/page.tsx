@@ -1,14 +1,18 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { FundingBadge } from "@/components/shared/FundingBadge";
-import { formatCurrency, formatPercentage, formatDateTime } from "@/lib/utils";
-import { ArrowLeft, TrendingUp, TrendingDown } from "lucide-react";
+import { useEffect, useState, useCallback } from 'react';
+import { useParams } from 'next/navigation';
+import Link from 'next/link';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { FundingBadge } from '@/components/shared/FundingBadge';
+import { RealtimeIndicator } from '@/components/shared/RealtimeIndicator';
+import { formatCurrency, formatPercentage, formatDateTime } from '@/lib/utils';
+import { ArrowLeft, TrendingUp, TrendingDown } from 'lucide-react';
+import { useRealtimeTable } from '@/hooks/useRealtimeTable';
+import { REALTIME_TABLES, REALTIME_EVENTS } from '@/lib/supabase/realtime-config';
+import { toast } from 'sonner';
 
 interface Position {
   id: string;
@@ -35,25 +39,72 @@ interface Position {
     pnlNet: number;
     snapshotAt: Date;
   }>;
+  alerts: Array<any>;
 }
 
 export default function PositionDetailPage() {
   const params = useParams();
   const [position, setPosition] = useState<Position | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  const loadPosition = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/positions/${params.id}`);
+      const data = await res.json();
+      setPosition(data);
+      console.log(`✅ [Position Detail] Dados atualizados para ${data.coinSymbol}`);
+    } catch (error) {
+      console.error('❌ [Position Detail] Error fetching position:', error);
+      toast.error('Erro ao carregar posição');
+    } finally {
+      setLoading(false);
+    }
+  }, [params.id]);
 
   useEffect(() => {
-    fetch(`/api/positions/${params.id}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setPosition(data);
-        setLoading(false);
-      })
-      .catch((error) => {
-        console.error("Error fetching position:", error);
-        setLoading(false);
+    loadPosition();
+  }, [loadPosition]);
+
+  // Realtime para updates na posição específica
+  const positionRealtime = useRealtimeTable({
+    table: REALTIME_TABLES.POSITIONS,
+    event: REALTIME_EVENTS.UPDATE,
+    filter: `id=eq.${params.id}`,
+    onUpdate: (payload) => {
+      console.log('🔄 [Position Detail] Posição atualizada', payload.new);
+      loadPosition();
+      setIsAnimating(true);
+      setTimeout(() => setIsAnimating(false), 1000);
+    },
+  });
+
+  // Realtime para novos snapshots
+  const snapshotsRealtime = useRealtimeTable({
+    table: REALTIME_TABLES.POSITION_SNAPSHOTS,
+    event: REALTIME_EVENTS.INSERT,
+    filter: `position_id=eq.${params.id}`,
+    onInsert: (payload) => {
+      console.log('📊 [Position Detail] Novo snapshot criado', payload.new);
+      loadPosition();
+      toast.info('Snapshot atualizado');
+    },
+  });
+
+  // Realtime para novos alertas
+  const alertsRealtime = useRealtimeTable({
+    table: REALTIME_TABLES.POSITION_ALERTS,
+    event: REALTIME_EVENTS.INSERT,
+    filter: `position_id=eq.${params.id}`,
+    onInsert: (payload) => {
+      console.log('🔔 [Position Detail] Novo alerta criado', payload.new);
+      loadPosition();
+      const alertType = (payload.new as any)?.alert_type || 'Alerta';
+      toast.error(`Novo alerta: ${alertType}`, {
+        description: (payload.new as any)?.message || 'Verifique a posição',
       });
-  }, [params.id]);
+    },
+  });
 
   if (loading) {
     return (
@@ -85,8 +136,15 @@ export default function PositionDetailPage() {
     position.snapshots.length > 0
       ? position.snapshots[0].currentFundingRate
       : position.shortEntryFundingRate;
-  const isOpen = position.status === "open";
+  const isOpen = position.status === 'open';
   const isProfitable = Number(position.pnlNet) >= 0;
+
+  // Verificar qual realtime está conectado (prioridade: posição > snapshots > alertas)
+  const realtimeStatus = positionRealtime.isConnected
+    ? positionRealtime
+    : snapshotsRealtime.isConnected
+    ? snapshotsRealtime
+    : alertsRealtime;
 
   return (
     <div className="space-y-6">
@@ -104,12 +162,19 @@ export default function PositionDetailPage() {
             </p>
           </div>
         </div>
-        <Badge variant={isOpen ? "success" : "outline"}>
-          {isOpen ? "Aberta" : "Fechada"}
-        </Badge>
+        <div className="flex items-center gap-3">
+          <RealtimeIndicator
+            isConnected={realtimeStatus.isConnected}
+            status={realtimeStatus.status}
+            lastUpdate={realtimeStatus.lastEvent}
+          />
+          <Badge variant={isOpen ? 'success' : 'outline'}>
+            {isOpen ? 'Aberta' : 'Fechada'}
+          </Badge>
+        </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-4">
+      <div className={`grid gap-6 md:grid-cols-4 ${isAnimating ? 'animate-pulse' : ''}`}>
         <Card>
           <CardContent className="p-6">
             <p className="text-sm text-muted-foreground">Capital Total</p>
@@ -122,10 +187,7 @@ export default function PositionDetailPage() {
           <CardContent className="p-6">
             <p className="text-sm text-muted-foreground">Entry Rate</p>
             <div className="mt-2">
-              <FundingBadge
-                rate={Number(position.shortEntryFundingRate)}
-                showIcon={false}
-              />
+              <FundingBadge rate={Number(position.shortEntryFundingRate)} showIcon={false} />
             </div>
           </CardContent>
         </Card>
@@ -140,12 +202,12 @@ export default function PositionDetailPage() {
         <Card>
           <CardContent className="p-6">
             <p className="text-sm text-muted-foreground">Status</p>
-            <p className="text-2xl font-bold mt-2">{isOpen ? "Ativa" : "Fechada"}</p>
+            <p className="text-2xl font-bold mt-2">{isOpen ? 'Ativa' : 'Fechada'}</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-4">
+      <div className={`grid gap-6 md:grid-cols-4 ${isAnimating ? 'animate-pulse' : ''}`}>
         <Card>
           <CardContent className="p-6">
             <p className="text-sm text-muted-foreground">Funding Acumulado</p>
@@ -167,7 +229,7 @@ export default function PositionDetailPage() {
             <p className="text-sm text-muted-foreground">P&L Líquido</p>
             <p
               className={`text-2xl font-bold mt-2 ${
-                isProfitable ? "text-success" : "text-destructive"
+                isProfitable ? 'text-success' : 'text-destructive'
               }`}
             >
               {formatCurrency(Number(position.pnlNet))}
@@ -180,7 +242,7 @@ export default function PositionDetailPage() {
             <div className="flex items-center gap-2 mt-2">
               <p
                 className={`text-2xl font-bold ${
-                  isProfitable ? "text-success" : "text-destructive"
+                  isProfitable ? 'text-success' : 'text-destructive'
                 }`}
               >
                 {formatPercentage(Number(position.pnlPercentage) / 100)}
@@ -211,9 +273,7 @@ export default function PositionDetailPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Valor:</span>
-              <span className="font-medium">
-                {formatCurrency(Number(position.shortAmount))}
-              </span>
+              <span className="font-medium">{formatCurrency(Number(position.shortAmount))}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Preço Entrada:</span>
@@ -229,10 +289,7 @@ export default function PositionDetailPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Funding Rate:</span>
-              <FundingBadge
-                rate={Number(currentRate)}
-                showIcon={false}
-              />
+              <FundingBadge rate={Number(currentRate)} showIcon={false} />
             </div>
           </CardContent>
         </Card>
@@ -252,9 +309,7 @@ export default function PositionDetailPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Valor:</span>
-              <span className="font-medium">
-                {formatCurrency(Number(position.spotAmount))}
-              </span>
+              <span className="font-medium">{formatCurrency(Number(position.spotAmount))}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Preço Compra:</span>
@@ -271,6 +326,29 @@ export default function PositionDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {position.alerts && position.alerts.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Alertas ({position.alerts.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {position.alerts.map((alert: any, idx: number) => (
+                <div
+                  key={idx}
+                  className="p-3 bg-destructive/10 border border-destructive/20 rounded-md"
+                >
+                  <p className="text-sm font-medium text-destructive">{alert.alert_type}</p>
+                  {alert.message && (
+                    <p className="text-xs text-muted-foreground mt-1">{alert.message}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {position.notes && (
         <Card>

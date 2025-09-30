@@ -11,7 +11,10 @@
       "Bash(npx prisma generate:*)",
       "WebFetch(domain:supabase.com)",
       "Bash(npm uninstall:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(source .env)"
     ],
     "deny": [],
     "ask": []

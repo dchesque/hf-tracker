@@ -1,7 +1,11 @@
-import { createClient } from "@/lib/supabase/server";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { FundingBadge } from "@/components/shared/FundingBadge";
+'use client';
+
+import { useEffect, useState, useMemo } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { FundingBadge } from '@/components/shared/FundingBadge';
+import { RealtimeIndicator } from '@/components/shared/RealtimeIndicator';
 import {
   Table,
   TableBody,
@@ -9,9 +13,13 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { formatLargeNumber } from "@/lib/utils";
-import { Search } from "lucide-react";
+} from '@/components/ui/table';
+import { formatLargeNumber } from '@/lib/utils';
+import { Search, RefreshCw } from 'lucide-react';
+import { useRealtimeTable } from '@/hooks/useRealtimeTable';
+import { REALTIME_TABLES, REALTIME_EVENTS } from '@/lib/supabase/realtime-config';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 
 interface FundingRateData {
   coin: string;
@@ -24,72 +32,120 @@ interface FundingRateData {
   scraped_at: string;
 }
 
-async function getLatestFundingRates(): Promise<FundingRateData[]> {
-  const supabase = await createClient();
+export default function OportunidadesPage() {
+  const [opportunities, setOpportunities] = useState<FundingRateData[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
 
-  const { data, error } = await supabase.rpc('get_latest_funding_rates');
+  const loadFundingRates = async () => {
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc('get_latest_funding_rates');
 
-  if (error) {
-    console.error('Error fetching funding rates:', error);
-    return [];
-  }
+      if (error) {
+        console.error('❌ [Oportunidades] Error fetching funding rates:', error);
+        toast.error('Erro ao carregar funding rates');
+        return;
+      }
 
-  return (data || []).sort(
-    (a: FundingRateData, b: FundingRateData) =>
-      Number(b.hyperliquid_rate) - Number(a.hyperliquid_rate)
-  );
-}
+      const sortedData = (data || []).sort(
+        (a: FundingRateData, b: FundingRateData) =>
+          Number(b.hyperliquid_rate) - Number(a.hyperliquid_rate)
+      );
 
-export default async function OportunidadesPage({
-  searchParams,
-}: {
-  searchParams: { search?: string };
-}) {
-  const opportunities = await getLatestFundingRates();
-  const searchTerm = searchParams.search?.toLowerCase() || "";
+      setOpportunities(sortedData);
+      console.log(`✅ [Oportunidades] Dados atualizados: ${sortedData.length} moedas carregadas`);
+    } catch (error) {
+      console.error('❌ [Oportunidades] Erro ao carregar dados:', error);
+      toast.error('Erro ao carregar dados');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const filteredOpportunities = searchTerm
-    ? opportunities.filter((opp) =>
-        opp.coin.toLowerCase().includes(searchTerm)
-      )
-    : opportunities;
+  useEffect(() => {
+    loadFundingRates();
+  }, []);
+
+  const { isConnected, status, lastEvent } = useRealtimeTable<FundingRateData>({
+    table: REALTIME_TABLES.FUNDING_RATES,
+    event: REALTIME_EVENTS.INSERT,
+    onInsert: (payload) => {
+      console.log('🔔 [Oportunidades] Novos funding rates inseridos');
+      loadFundingRates();
+      toast.success('Funding rates atualizados!', {
+        description: 'Novos dados disponíveis',
+      });
+    },
+  });
+
+  const filteredOpportunities = useMemo(() => {
+    if (!searchTerm) return opportunities;
+    return opportunities.filter((opp) =>
+      opp.coin.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [opportunities, searchTerm]);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Oportunidades</h1>
-        <p className="text-gray-400 mt-1">
-          Melhores oportunidades de funding rate arbitrage
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Oportunidades</h1>
+          <p className="text-gray-400 mt-1">
+            Melhores oportunidades de funding rate arbitrage
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <RealtimeIndicator
+            isConnected={isConnected}
+            status={status}
+            lastUpdate={lastEvent}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={loadFundingRates}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Atualizar
+          </Button>
+        </div>
       </div>
 
       <Card>
         <CardContent className="p-6">
-          <form action="/oportunidades" method="get">
-            <div className="relative">
-              <Search
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                size={18}
-              />
-              <Input
-                name="search"
-                placeholder="Buscar moeda..."
-                defaultValue={searchTerm}
-                className="pl-10"
-              />
-            </div>
-          </form>
+          <div className="relative">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              size={18}
+            />
+            <Input
+              placeholder="Buscar moeda..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
         </CardContent>
       </Card>
 
-      {filteredOpportunities.length === 0 ? (
+      {isLoading ? (
+        <Card>
+          <CardContent className="p-12">
+            <div className="text-center space-y-4">
+              <div className="text-gray-400 text-lg">Carregando oportunidades...</div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : filteredOpportunities.length === 0 ? (
         <Card>
           <CardContent className="p-12">
             <div className="text-center space-y-4">
               <div className="text-gray-400 text-lg">
                 {searchTerm
                   ? `Nenhuma moeda encontrada para "${searchTerm}"`
-                  : "Nenhuma oportunidade encontrada"}
+                  : 'Nenhuma oportunidade encontrada'}
               </div>
               {!searchTerm && (
                 <p className="text-sm text-gray-500">
@@ -181,8 +237,8 @@ export default async function OportunidadesPage({
 
       {filteredOpportunities.length > 0 && (
         <div className="text-sm text-gray-500 text-center">
-          Mostrando {filteredOpportunities.length} moeda(s) • Última atualização:{" "}
-          {new Date(filteredOpportunities[0].scraped_at).toLocaleString("pt-BR")}
+          Mostrando {filteredOpportunities.length} moeda(s) • Última atualização:{' '}
+          {new Date(filteredOpportunities[0].scraped_at).toLocaleString('pt-BR')}
         </div>
       )}
     </div>

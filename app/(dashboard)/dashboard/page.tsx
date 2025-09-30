@@ -1,10 +1,14 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { MetricCard } from "@/components/dashboard/MetricCard";
-import { DollarSign, TrendingUp, Briefcase, Award } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatCurrency, formatPercentage } from "@/lib/utils";
+import { useEffect, useState, useCallback } from 'react';
+import { MetricCard } from '@/components/dashboard/MetricCard';
+import { DollarSign, TrendingUp, Briefcase, Award } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { formatCurrency, formatPercentage } from '@/lib/utils';
+import { RealtimeIndicator } from '@/components/shared/RealtimeIndicator';
+import { useRealtimeTable } from '@/hooks/useRealtimeTable';
+import { REALTIME_TABLES, REALTIME_EVENTS } from '@/lib/supabase/realtime-config';
+import { toast } from 'sonner';
 
 interface Metrics {
   totalInvested: number;
@@ -22,18 +26,43 @@ export default function DashboardPage() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetch("/api/metrics")
-      .then((res) => res.json())
-      .then((data) => {
-        setMetrics(data);
-        setLoading(false);
-      })
-      .catch((error) => {
-        console.error("Error fetching metrics:", error);
-        setLoading(false);
-      });
+  const loadMetrics = useCallback(async () => {
+    try {
+      const res = await fetch('/api/metrics');
+      const data = await res.json();
+      setMetrics(data);
+      console.log('✅ [Dashboard] Métricas atualizadas', data);
+    } catch (error) {
+      console.error('❌ [Dashboard] Error fetching metrics:', error);
+      toast.error('Erro ao carregar métricas');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadMetrics();
+  }, [loadMetrics]);
+
+  const { isConnected, status, lastEvent } = useRealtimeTable({
+    table: REALTIME_TABLES.POSITIONS,
+    event: REALTIME_EVENTS.ALL,
+    onInsert: (payload) => {
+      console.log('🔔 [Dashboard] Nova posição criada', payload.new);
+      loadMetrics();
+      toast.success('Nova posição aberta!', {
+        description: `Posição em ${(payload.new as any)?.coin || 'moeda'}`,
+      });
+    },
+    onUpdate: (payload) => {
+      console.log('🔄 [Dashboard] Posição atualizada', payload.new);
+      loadMetrics();
+    },
+    onDelete: (payload) => {
+      console.log('🗑️ [Dashboard] Posição deletada', payload.old);
+      loadMetrics();
+    },
+  });
 
   if (loading) {
     return (
@@ -59,11 +88,18 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">
-          Visão geral das suas posições e performance
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <p className="text-muted-foreground mt-1">
+            Visão geral das suas posições e performance
+          </p>
+        </div>
+        <RealtimeIndicator
+          isConnected={isConnected}
+          status={status}
+          lastUpdate={lastEvent}
+        />
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
