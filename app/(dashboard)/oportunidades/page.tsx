@@ -15,7 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatLargeNumber, formatCurrency, formatPercentage } from '@/lib/utils';
-import { Search, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Search, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, Rocket } from 'lucide-react';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { REALTIME_TABLES, REALTIME_EVENTS } from '@/lib/supabase/realtime-config';
 import { toast } from 'sonner';
@@ -36,6 +36,12 @@ type TimePeriod = 'hour' | 'day' | 'week' | 'month' | 'year';
 
 type SortField = 'coin' | 'hyperliquid_oi' | 'hyperliquid_rate' | 'binance_rate' | 'bybit_rate' | 'binance_hl_arb' | 'bybit_hl_arb';
 type SortDirection = 'asc' | 'desc';
+
+// Função para gerar URL de busca do CoinGecko no Google
+const getCoinGeckoSearchUrl = (symbol: string): string => {
+  const query = encodeURIComponent(`Coingecko $${symbol.toUpperCase()}`);
+  return `https://www.google.com/search?q=${query}`;
+};
 
 // Valores no banco são POR HORA
 const TIME_PERIOD_MULTIPLIERS: Record<TimePeriod, number> = {
@@ -182,17 +188,17 @@ export default function OportunidadesPage() {
 
   const calculateReturns = (hourlyRate: number, investment: number = 1000) => {
     // hourlyRate já é a taxa por hora (valor do banco de dados)
-    // Retorno em valor absoluto por hora (50% do capital exposto)
-    const hourlyReturn = investment * 0.5 * hourlyRate;
+    // Retorno em valor absoluto por hora (apenas sobre os 50% expostos)
+    const exposedCapital = investment * 0.5;
 
-    // Retornos por período (acumulados)
-    const hourly = hourlyReturn;
-    const sixHours = hourlyReturn * 6;
-    const twelveHours = hourlyReturn * 12;
-    const daily = hourlyReturn * 24;
-    const weekly = hourlyReturn * 24 * 7;
-    const monthly = hourlyReturn * 24 * 30;
-    const yearly = hourlyReturn * 24 * 365;
+    // Retornos por período (apenas sobre capital exposto)
+    const hourly = exposedCapital * hourlyRate;
+    const sixHours = exposedCapital * hourlyRate * 6;
+    const twelveHours = exposedCapital * hourlyRate * 12;
+    const daily = exposedCapital * hourlyRate * 24;
+    const weekly = exposedCapital * hourlyRate * 24 * 7;
+    const monthly = exposedCapital * hourlyRate * 24 * 30;
+    const yearly = exposedCapital * hourlyRate * 24 * 365;
 
     return { hourly, sixHours, twelveHours, daily, weekly, monthly, yearly };
   };
@@ -203,15 +209,10 @@ export default function OportunidadesPage() {
         <div>
           <h1 className="text-3xl font-bold">Oportunidades</h1>
           <p className="text-gray-400 mt-1">
-            Melhores oportunidades de funding rate arbitrage
+            Melhores oportunidades de funding rate no mercado
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <RealtimeIndicator
-            isConnected={isConnected}
-            status={status}
-            lastUpdate={lastEvent}
-          />
           {lastScrapedAt && (
             <div
               className="text-sm text-gray-400 cursor-help"
@@ -240,15 +241,11 @@ export default function OportunidadesPage() {
               </span>
             </div>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={loadFundingRates}
-            disabled={isLoading}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Atualizar
-          </Button>
+          <RealtimeIndicator
+            isConnected={isConnected}
+            status={status}
+            lastUpdate={lastEvent}
+          />
         </div>
       </div>
 
@@ -261,13 +258,32 @@ export default function OportunidadesPage() {
             const yearlyRate = opp.hyperliquid_rate * TIME_PERIOD_MULTIPLIERS['year'];
 
             return (
-              <Card key={opp.coin} className="relative overflow-hidden">
-                <div className="absolute top-0 right-0 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-bl-lg">
-                  TOP {index + 1}
+              <Card key={opp.coin} className="relative overflow-hidden bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 border border-gray-800/30 shadow-2xl hover:shadow-blue-500/20 transition-all duration-500 hover:scale-[1.01]">
+                {/* Efeito de brilho abstrato de fundo */}
+                <div className="absolute -top-24 -right-24 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-cyan-500/5 rounded-full blur-2xl pointer-events-none"></div>
+
+                <div className={`absolute top-0 right-0 text-white text-xs font-bold px-3 py-1.5 rounded-bl-xl shadow-lg backdrop-blur-sm flex items-center gap-1.5 ${
+                  yearlyRate > 1
+                    ? 'bg-gradient-to-bl from-yellow-500 via-yellow-600 to-orange-600 border-b border-l border-yellow-400/30 animate-pulse'
+                    : 'bg-gradient-to-bl from-blue-600 via-blue-600 to-blue-700 border-b border-l border-blue-400/30'
+                }`}>
+                  {yearlyRate > 1 && (
+                    <Rocket className="h-3.5 w-3.5 animate-bounce" />
+                  )}
+                  <span className="tracking-wide">TOP {index + 1}</span>
                 </div>
-                <CardContent className="p-6 space-y-4">
+                <CardContent className="p-6 space-y-4 relative z-10">
                   <div>
-                    <h3 className="text-2xl font-bold font-mono">{opp.coin}</h3>
+                    <a
+                      href={getCoinGeckoSearchUrl(opp.coin)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-2xl font-bold font-mono hover:text-blue-400 transition-colors"
+                    >
+                      {opp.coin}
+                    </a>
                     <p className="text-xs text-gray-500">Taxa Anual</p>
                     <div className="text-3xl font-bold text-green-500 mt-1">
                       {formatPercentage(yearlyRate)}
@@ -275,50 +291,50 @@ export default function OportunidadesPage() {
                   </div>
 
                   <div className="border-t border-gray-700 pt-3">
-                    <p className="text-xs text-gray-400 mb-1">Simulação com $1000 (50% exposto)</p>
+                    <p className="text-xs text-gray-400 mb-1">Retorno anual com $1000 (50% exposto = $500)</p>
                     <div className="text-lg font-semibold text-green-400">
                       {formatCurrency(returns.yearly)}
                     </div>
-                    <p className="text-xs text-gray-500">Retorno anual estimado</p>
+                    <p className="text-xs text-gray-500">Valor sobre os $500 expostos</p>
                   </div>
 
                   <div className="border-t border-gray-700 pt-3">
-                    <p className="text-xs text-gray-400 mb-2">Retorno com $1000:</p>
+                    <p className="text-xs text-gray-400 mb-2">Retorno sobre $500 expostos:</p>
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div>
                         <span className="text-gray-500">1h:</span>
                         <span className="ml-1 font-semibold text-green-400">
-                          {formatCurrency(returns.hourly)}
+                          {formatCurrency(returns.hourly)} <span className="text-gray-500">({formatPercentage(opp.hyperliquid_rate)})</span>
                         </span>
                       </div>
                       <div>
                         <span className="text-gray-500">6h:</span>
                         <span className="ml-1 font-semibold text-green-400">
-                          {formatCurrency(returns.sixHours)}
+                          {formatCurrency(returns.sixHours)} <span className="text-gray-500">({formatPercentage(opp.hyperliquid_rate * 6)})</span>
                         </span>
                       </div>
                       <div>
                         <span className="text-gray-500">12h:</span>
                         <span className="ml-1 font-semibold text-green-400">
-                          {formatCurrency(returns.twelveHours)}
+                          {formatCurrency(returns.twelveHours)} <span className="text-gray-500">({formatPercentage(opp.hyperliquid_rate * 12)})</span>
                         </span>
                       </div>
                       <div>
                         <span className="text-gray-500">24h:</span>
                         <span className="ml-1 font-semibold text-green-400">
-                          {formatCurrency(returns.daily)}
+                          {formatCurrency(returns.daily)} <span className="text-gray-500">({formatPercentage(opp.hyperliquid_rate * 24)})</span>
                         </span>
                       </div>
                       <div>
                         <span className="text-gray-500">7d:</span>
                         <span className="ml-1 font-semibold text-green-400">
-                          {formatCurrency(returns.weekly)}
+                          {formatCurrency(returns.weekly)} <span className="text-gray-500">({formatPercentage(opp.hyperliquid_rate * 24 * 7)})</span>
                         </span>
                       </div>
                       <div>
                         <span className="text-gray-500">30d:</span>
                         <span className="ml-1 font-semibold text-green-400">
-                          {formatCurrency(returns.monthly)}
+                          {formatCurrency(returns.monthly)} <span className="text-gray-500">({formatPercentage(opp.hyperliquid_rate * 24 * 30)})</span>
                         </span>
                       </div>
                     </div>
@@ -491,7 +507,14 @@ export default function OportunidadesPage() {
                         #{index + 1}
                       </TableCell>
                       <TableCell className="font-mono font-bold">
-                        {opp.coin}
+                        <a
+                          href={getCoinGeckoSearchUrl(opp.coin)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:text-blue-400 transition-colors hover:underline"
+                        >
+                          {opp.coin}
+                        </a>
                       </TableCell>
                       <TableCell className="text-right">
                         {formatLargeNumber(Number(opp.hyperliquid_oi))}

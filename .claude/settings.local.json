@@ -16,7 +16,11 @@
       "Bash(cat:*)",
       "Bash(source .env)",
       "Bash(npx shadcn@latest add:*)",
-      "Read(//d/Users/OneDrive/Imagens/Screenshots/**)"
+      "Read(//d/Users/OneDrive/Imagens/Screenshots/**)",
+      "WebSearch",
+      "WebFetch(domain:api.coingecko.com)",
+      "Bash(curl -s \"https://api.coingecko.com/api/v3/coins/list\" -o \"C:\\Workspace\\hf-tracker\\coingecko_list.json\")",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": []
