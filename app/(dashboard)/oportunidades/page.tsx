@@ -45,7 +45,7 @@ interface FundingRateData {
 
 type TimePeriod = 'hour' | 'day' | 'week' | 'month' | 'year';
 
-type SortField = 'coin' | 'hyperliquid_oi' | 'hyperliquid_rate' | 'binance_rate' | 'bybit_rate' | 'binance_hl_arb' | 'bybit_hl_arb';
+type SortField = 'coin' | 'hyperliquid_oi' | 'hyperliquid_rate' | 'binance_rate' | 'bybit_rate' | 'binance_hl_arb' | 'bybit_hl_arb' | 'avg_24h' | 'avg_7d' | 'avg_30d';
 type SortDirection = 'asc' | 'desc';
 
 // Função para gerar URL de busca do CoinGecko no Google
@@ -651,14 +651,32 @@ export default function OportunidadesPage() {
                         {getSortIcon('bybit_rate')}
                       </div>
                     </TableHead>
-                    <TableHead className="text-right border-l border-gray-700">
-                      <span className="text-blue-400">Média 24h</span>
+                    <TableHead
+                      className="text-right cursor-pointer hover:bg-gray-800/50 border-l border-gray-700"
+                      onClick={() => handleSort('avg_24h')}
+                    >
+                      <div className="flex items-center justify-end">
+                        <span className="text-blue-400">Últimas 24h</span>
+                        {getSortIcon('avg_24h')}
+                      </div>
                     </TableHead>
-                    <TableHead className="text-right border-l border-gray-700">
-                      <span className="text-purple-400">Média 7d</span>
+                    <TableHead
+                      className="text-right cursor-pointer hover:bg-gray-800/50 border-l border-gray-700"
+                      onClick={() => handleSort('avg_7d')}
+                    >
+                      <div className="flex items-center justify-end">
+                        <span className="text-purple-400">Últimos 7d</span>
+                        {getSortIcon('avg_7d')}
+                      </div>
                     </TableHead>
-                    <TableHead className="text-right border-l border-gray-700">
-                      <span className="text-amber-400">Média 30d</span>
+                    <TableHead
+                      className="text-right cursor-pointer hover:bg-gray-800/50 border-l border-gray-700"
+                      onClick={() => handleSort('avg_30d')}
+                    >
+                      <div className="flex items-center justify-end">
+                        <span className="text-amber-400">Últimos 30d</span>
+                        {getSortIcon('avg_30d')}
+                      </div>
                     </TableHead>
                     <TableHead
                       className="text-right cursor-pointer hover:bg-gray-800/50"
@@ -728,7 +746,7 @@ export default function OportunidadesPage() {
                       <TableCell className="text-right border-l border-gray-800">
                         {opp.avg_24h !== null && opp.avg_24h !== undefined ? (
                           <span className="text-blue-400 text-sm">
-                            {formatPercentage(Number(opp.avg_24h) * TIME_PERIOD_MULTIPLIERS['year'])}
+                            {formatPercentage(Number(opp.avg_24h))}
                           </span>
                         ) : (
                           <span className="text-gray-600 text-xs">-</span>
@@ -737,7 +755,7 @@ export default function OportunidadesPage() {
                       <TableCell className="text-right border-l border-gray-800">
                         {opp.avg_7d !== null && opp.avg_7d !== undefined ? (
                           <span className="text-purple-400 text-sm">
-                            {formatPercentage(Number(opp.avg_7d) * TIME_PERIOD_MULTIPLIERS['year'])}
+                            {formatPercentage(Number(opp.avg_7d))}
                           </span>
                         ) : (
                           <span className="text-gray-600 text-xs">-</span>
@@ -746,7 +764,7 @@ export default function OportunidadesPage() {
                       <TableCell className="text-right border-l border-gray-800">
                         {opp.avg_30d !== null && opp.avg_30d !== undefined ? (
                           <span className="text-amber-400 text-sm">
-                            {formatPercentage(Number(opp.avg_30d) * TIME_PERIOD_MULTIPLIERS['year'])}
+                            {formatPercentage(Number(opp.avg_30d))}
                           </span>
                         ) : (
                           <span className="text-gray-600 text-xs">-</span>
