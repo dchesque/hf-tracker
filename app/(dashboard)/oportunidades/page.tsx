@@ -23,7 +23,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatLargeNumber, formatCurrency, formatPercentage } from '@/lib/utils';
-import { Search, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, Rocket, ExternalLink } from 'lucide-react';
+import { Search, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, Rocket, ExternalLink, ChevronRight, ChevronDown } from 'lucide-react';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { REALTIME_TABLES, REALTIME_EVENTS } from '@/lib/supabase/realtime-config';
 import { toast } from 'sonner';
@@ -86,6 +86,7 @@ export default function OportunidadesPage() {
   const [lastScrapedAt, setLastScrapedAt] = useState<string | null>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const updateCountRef = useRef(0);
+  const [showHistoricalColumns, setShowHistoricalColumns] = useState(true);
 
   const loadFundingRates = async () => {
     try {
@@ -532,6 +533,15 @@ export default function OportunidadesPage() {
                 className="pl-10"
               />
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowHistoricalColumns(!showHistoricalColumns)}
+              className="flex items-center gap-2"
+            >
+              {showHistoricalColumns ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              Histórico
+            </Button>
             <div className="flex gap-2">
               <Button
                 variant={timePeriod === 'hour' ? 'default' : 'outline'}
@@ -651,33 +661,37 @@ export default function OportunidadesPage() {
                         {getSortIcon('bybit_rate')}
                       </div>
                     </TableHead>
-                    <TableHead
-                      className="text-right cursor-pointer hover:bg-gray-800/50 border-l border-gray-700"
-                      onClick={() => handleSort('avg_24h')}
-                    >
-                      <div className="flex items-center justify-end">
-                        <span className="text-blue-400">Últimas 24h</span>
-                        {getSortIcon('avg_24h')}
-                      </div>
-                    </TableHead>
-                    <TableHead
-                      className="text-right cursor-pointer hover:bg-gray-800/50 border-l border-gray-700"
-                      onClick={() => handleSort('avg_7d')}
-                    >
-                      <div className="flex items-center justify-end">
-                        <span className="text-purple-400">Últimos 7d</span>
-                        {getSortIcon('avg_7d')}
-                      </div>
-                    </TableHead>
-                    <TableHead
-                      className="text-right cursor-pointer hover:bg-gray-800/50 border-l border-gray-700"
-                      onClick={() => handleSort('avg_30d')}
-                    >
-                      <div className="flex items-center justify-end">
-                        <span className="text-amber-400">Últimos 30d</span>
-                        {getSortIcon('avg_30d')}
-                      </div>
-                    </TableHead>
+                    {showHistoricalColumns && (
+                      <>
+                        <TableHead
+                          className="text-right cursor-pointer hover:bg-gray-800/50 border-l border-gray-700"
+                          onClick={() => handleSort('avg_24h')}
+                        >
+                          <div className="flex items-center justify-end">
+                            <span className="text-blue-400">Últimas 24h</span>
+                            {getSortIcon('avg_24h')}
+                          </div>
+                        </TableHead>
+                        <TableHead
+                          className="text-right cursor-pointer hover:bg-gray-800/50 border-l border-gray-700"
+                          onClick={() => handleSort('avg_7d')}
+                        >
+                          <div className="flex items-center justify-end">
+                            <span className="text-purple-400">Últimos 7d</span>
+                            {getSortIcon('avg_7d')}
+                          </div>
+                        </TableHead>
+                        <TableHead
+                          className="text-right cursor-pointer hover:bg-gray-800/50 border-l border-gray-700"
+                          onClick={() => handleSort('avg_30d')}
+                        >
+                          <div className="flex items-center justify-end">
+                            <span className="text-amber-400">Últimos 30d</span>
+                            {getSortIcon('avg_30d')}
+                          </div>
+                        </TableHead>
+                      </>
+                    )}
                     <TableHead
                       className="text-right cursor-pointer hover:bg-gray-800/50"
                       onClick={() => handleSort('binance_hl_arb')}
@@ -743,33 +757,37 @@ export default function OportunidadesPage() {
                           <span className="text-gray-500 text-xs">-</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-right border-l border-gray-800">
-                        {opp.avg_24h !== null && opp.avg_24h !== undefined ? (
-                          <span className="text-blue-400 text-sm">
-                            {formatPercentage(Number(opp.avg_24h))}
-                          </span>
-                        ) : (
-                          <span className="text-gray-600 text-xs">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right border-l border-gray-800">
-                        {opp.avg_7d !== null && opp.avg_7d !== undefined ? (
-                          <span className="text-purple-400 text-sm">
-                            {formatPercentage(Number(opp.avg_7d))}
-                          </span>
-                        ) : (
-                          <span className="text-gray-600 text-xs">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right border-l border-gray-800">
-                        {opp.avg_30d !== null && opp.avg_30d !== undefined ? (
-                          <span className="text-amber-400 text-sm">
-                            {formatPercentage(Number(opp.avg_30d))}
-                          </span>
-                        ) : (
-                          <span className="text-gray-600 text-xs">-</span>
-                        )}
-                      </TableCell>
+                      {showHistoricalColumns && (
+                        <>
+                          <TableCell className="text-right border-l border-gray-800">
+                            {opp.avg_24h !== null && opp.avg_24h !== undefined ? (
+                              <span className="text-blue-400 text-sm">
+                                {formatPercentage(Number(opp.avg_24h))}
+                              </span>
+                            ) : (
+                              <span className="text-gray-600 text-xs">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right border-l border-gray-800">
+                            {opp.avg_7d !== null && opp.avg_7d !== undefined ? (
+                              <span className="text-purple-400 text-sm">
+                                {formatPercentage(Number(opp.avg_7d))}
+                              </span>
+                            ) : (
+                              <span className="text-gray-600 text-xs">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right border-l border-gray-800">
+                            {opp.avg_30d !== null && opp.avg_30d !== undefined ? (
+                              <span className="text-amber-400 text-sm">
+                                {formatPercentage(Number(opp.avg_30d))}
+                              </span>
+                            ) : (
+                              <span className="text-gray-600 text-xs">-</span>
+                            )}
+                          </TableCell>
+                        </>
+                      )}
                       <TableCell className="text-right">
                         {opp.binance_hl_arb !== null ? (
                           <FundingBadge
