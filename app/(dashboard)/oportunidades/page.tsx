@@ -87,6 +87,7 @@ export default function OportunidadesPage() {
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const updateCountRef = useRef(0);
   const [showHistoricalColumns, setShowHistoricalColumns] = useState(true);
+  const [showOnlyHyperliquid, setShowOnlyHyperliquid] = useState(false);
 
   const loadFundingRates = async () => {
     try {
@@ -542,6 +543,13 @@ export default function OportunidadesPage() {
               {showHistoricalColumns ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
               Histórico
             </Button>
+            <Button
+              variant={showOnlyHyperliquid ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setShowOnlyHyperliquid(!showOnlyHyperliquid)}
+            >
+              Só Hyperliquid
+            </Button>
             <div className="flex gap-2">
               <Button
                 variant={timePeriod === 'hour' ? 'default' : 'outline'}
@@ -674,42 +682,46 @@ export default function OportunidadesPage() {
                         </TableHead>
                       </>
                     )}
-                    <TableHead
-                      className="text-right cursor-pointer hover:bg-gray-800/50"
-                      onClick={() => handleSort('binance_rate')}
-                    >
-                      <div className="flex items-center justify-end">
-                        Binance ({TIME_PERIOD_LABELS[timePeriod]})
-                        {getSortIcon('binance_rate')}
-                      </div>
-                    </TableHead>
-                    <TableHead
-                      className="text-right cursor-pointer hover:bg-gray-800/50"
-                      onClick={() => handleSort('bybit_rate')}
-                    >
-                      <div className="flex items-center justify-end">
-                        Bybit ({TIME_PERIOD_LABELS[timePeriod]})
-                        {getSortIcon('bybit_rate')}
-                      </div>
-                    </TableHead>
-                    <TableHead
-                      className="text-right cursor-pointer hover:bg-gray-800/50"
-                      onClick={() => handleSort('binance_hl_arb')}
-                    >
-                      <div className="flex items-center justify-end">
-                        Binance-HL Arb ({TIME_PERIOD_LABELS[timePeriod]})
-                        {getSortIcon('binance_hl_arb')}
-                      </div>
-                    </TableHead>
-                    <TableHead
-                      className="text-right cursor-pointer hover:bg-gray-800/50"
-                      onClick={() => handleSort('bybit_hl_arb')}
-                    >
-                      <div className="flex items-center justify-end">
-                        Bybit-HL Arb ({TIME_PERIOD_LABELS[timePeriod]})
-                        {getSortIcon('bybit_hl_arb')}
-                      </div>
-                    </TableHead>
+                    {!showOnlyHyperliquid && (
+                      <>
+                        <TableHead
+                          className="text-right cursor-pointer hover:bg-gray-800/50"
+                          onClick={() => handleSort('binance_rate')}
+                        >
+                          <div className="flex items-center justify-end">
+                            Binance ({TIME_PERIOD_LABELS[timePeriod]})
+                            {getSortIcon('binance_rate')}
+                          </div>
+                        </TableHead>
+                        <TableHead
+                          className="text-right cursor-pointer hover:bg-gray-800/50"
+                          onClick={() => handleSort('bybit_rate')}
+                        >
+                          <div className="flex items-center justify-end">
+                            Bybit ({TIME_PERIOD_LABELS[timePeriod]})
+                            {getSortIcon('bybit_rate')}
+                          </div>
+                        </TableHead>
+                        <TableHead
+                          className="text-right cursor-pointer hover:bg-gray-800/50"
+                          onClick={() => handleSort('binance_hl_arb')}
+                        >
+                          <div className="flex items-center justify-end">
+                            Binance-HL Arb ({TIME_PERIOD_LABELS[timePeriod]})
+                            {getSortIcon('binance_hl_arb')}
+                          </div>
+                        </TableHead>
+                        <TableHead
+                          className="text-right cursor-pointer hover:bg-gray-800/50"
+                          onClick={() => handleSort('bybit_hl_arb')}
+                        >
+                          <div className="flex items-center justify-end">
+                            Bybit-HL Arb ({TIME_PERIOD_LABELS[timePeriod]})
+                            {getSortIcon('bybit_hl_arb')}
+                          </div>
+                        </TableHead>
+                      </>
+                    )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -768,46 +780,50 @@ export default function OportunidadesPage() {
                           </TableCell>
                         </>
                       )}
-                      <TableCell className="text-right">
-                        {opp.binance_rate !== null ? (
-                          <FundingBadge
-                            rate={Number(opp.binance_rate)}
-                            showIcon={false}
-                          />
-                        ) : (
-                          <span className="text-gray-500 text-xs">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {opp.bybit_rate !== null ? (
-                          <FundingBadge
-                            rate={Number(opp.bybit_rate)}
-                            showIcon={false}
-                          />
-                        ) : (
-                          <span className="text-gray-500 text-xs">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {opp.binance_hl_arb !== null ? (
-                          <FundingBadge
-                            rate={Number(opp.binance_hl_arb)}
-                            showIcon={false}
-                          />
-                        ) : (
-                          <span className="text-gray-500 text-xs">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {opp.bybit_hl_arb !== null ? (
-                          <FundingBadge
-                            rate={Number(opp.bybit_hl_arb)}
-                            showIcon={false}
-                          />
-                        ) : (
-                          <span className="text-gray-500 text-xs">-</span>
-                        )}
-                      </TableCell>
+                      {!showOnlyHyperliquid && (
+                        <>
+                          <TableCell className="text-right">
+                            {opp.binance_rate !== null ? (
+                              <FundingBadge
+                                rate={Number(opp.binance_rate)}
+                                showIcon={false}
+                              />
+                            ) : (
+                              <span className="text-gray-500 text-xs">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {opp.bybit_rate !== null ? (
+                              <FundingBadge
+                                rate={Number(opp.bybit_rate)}
+                                showIcon={false}
+                              />
+                            ) : (
+                              <span className="text-gray-500 text-xs">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {opp.binance_hl_arb !== null ? (
+                              <FundingBadge
+                                rate={Number(opp.binance_hl_arb)}
+                                showIcon={false}
+                              />
+                            ) : (
+                              <span className="text-gray-500 text-xs">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {opp.bybit_hl_arb !== null ? (
+                              <FundingBadge
+                                rate={Number(opp.bybit_hl_arb)}
+                                showIcon={false}
+                              />
+                            ) : (
+                              <span className="text-gray-500 text-xs">-</span>
+                            )}
+                          </TableCell>
+                        </>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
