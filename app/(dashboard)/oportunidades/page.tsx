@@ -643,6 +643,37 @@ export default function OportunidadesPage() {
                         {getSortIcon('hyperliquid_rate')}
                       </div>
                     </TableHead>
+                    {showHistoricalColumns && (
+                      <>
+                        <TableHead
+                          className="text-right cursor-pointer hover:bg-gray-800/50 border-l border-gray-700"
+                          onClick={() => handleSort('avg_24h')}
+                        >
+                          <div className="flex items-center justify-end">
+                            <span className="text-blue-400">Últimas 24h</span>
+                            {getSortIcon('avg_24h')}
+                          </div>
+                        </TableHead>
+                        <TableHead
+                          className="text-right cursor-pointer hover:bg-gray-800/50"
+                          onClick={() => handleSort('avg_7d')}
+                        >
+                          <div className="flex items-center justify-end">
+                            <span className="text-purple-400">Últimos 7d</span>
+                            {getSortIcon('avg_7d')}
+                          </div>
+                        </TableHead>
+                        <TableHead
+                          className="text-right cursor-pointer hover:bg-gray-800/50"
+                          onClick={() => handleSort('avg_30d')}
+                        >
+                          <div className="flex items-center justify-end">
+                            <span className="text-amber-400">Últimos 30d</span>
+                            {getSortIcon('avg_30d')}
+                          </div>
+                        </TableHead>
+                      </>
+                    )}
                     <TableHead
                       className="text-right cursor-pointer hover:bg-gray-800/50"
                       onClick={() => handleSort('binance_rate')}
@@ -661,37 +692,6 @@ export default function OportunidadesPage() {
                         {getSortIcon('bybit_rate')}
                       </div>
                     </TableHead>
-                    {showHistoricalColumns && (
-                      <>
-                        <TableHead
-                          className="text-right cursor-pointer hover:bg-gray-800/50 border-l border-gray-700"
-                          onClick={() => handleSort('avg_24h')}
-                        >
-                          <div className="flex items-center justify-end">
-                            <span className="text-blue-400">Últimas 24h</span>
-                            {getSortIcon('avg_24h')}
-                          </div>
-                        </TableHead>
-                        <TableHead
-                          className="text-right cursor-pointer hover:bg-gray-800/50 border-l border-gray-700"
-                          onClick={() => handleSort('avg_7d')}
-                        >
-                          <div className="flex items-center justify-end">
-                            <span className="text-purple-400">Últimos 7d</span>
-                            {getSortIcon('avg_7d')}
-                          </div>
-                        </TableHead>
-                        <TableHead
-                          className="text-right cursor-pointer hover:bg-gray-800/50 border-l border-gray-700"
-                          onClick={() => handleSort('avg_30d')}
-                        >
-                          <div className="flex items-center justify-end">
-                            <span className="text-amber-400">Últimos 30d</span>
-                            {getSortIcon('avg_30d')}
-                          </div>
-                        </TableHead>
-                      </>
-                    )}
                     <TableHead
                       className="text-right cursor-pointer hover:bg-gray-800/50"
                       onClick={() => handleSort('binance_hl_arb')}
@@ -737,6 +737,37 @@ export default function OportunidadesPage() {
                           showIcon={false}
                         />
                       </TableCell>
+                      {showHistoricalColumns && (
+                        <>
+                          <TableCell className="text-right border-l border-gray-800">
+                            {opp.avg_24h !== null && opp.avg_24h !== undefined ? (
+                              <span className="text-blue-400 text-sm">
+                                {formatPercentage(Number(opp.avg_24h))}
+                              </span>
+                            ) : (
+                              <span className="text-gray-600 text-xs">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {opp.avg_7d !== null && opp.avg_7d !== undefined ? (
+                              <span className="text-purple-400 text-sm">
+                                {formatPercentage(Number(opp.avg_7d))}
+                              </span>
+                            ) : (
+                              <span className="text-gray-600 text-xs">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {opp.avg_30d !== null && opp.avg_30d !== undefined ? (
+                              <span className="text-amber-400 text-sm">
+                                {formatPercentage(Number(opp.avg_30d))}
+                              </span>
+                            ) : (
+                              <span className="text-gray-600 text-xs">-</span>
+                            )}
+                          </TableCell>
+                        </>
+                      )}
                       <TableCell className="text-right">
                         {opp.binance_rate !== null ? (
                           <FundingBadge
@@ -757,37 +788,6 @@ export default function OportunidadesPage() {
                           <span className="text-gray-500 text-xs">-</span>
                         )}
                       </TableCell>
-                      {showHistoricalColumns && (
-                        <>
-                          <TableCell className="text-right border-l border-gray-800">
-                            {opp.avg_24h !== null && opp.avg_24h !== undefined ? (
-                              <span className="text-blue-400 text-sm">
-                                {formatPercentage(Number(opp.avg_24h))}
-                              </span>
-                            ) : (
-                              <span className="text-gray-600 text-xs">-</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right border-l border-gray-800">
-                            {opp.avg_7d !== null && opp.avg_7d !== undefined ? (
-                              <span className="text-purple-400 text-sm">
-                                {formatPercentage(Number(opp.avg_7d))}
-                              </span>
-                            ) : (
-                              <span className="text-gray-600 text-xs">-</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right border-l border-gray-800">
-                            {opp.avg_30d !== null && opp.avg_30d !== undefined ? (
-                              <span className="text-amber-400 text-sm">
-                                {formatPercentage(Number(opp.avg_30d))}
-                              </span>
-                            ) : (
-                              <span className="text-gray-600 text-xs">-</span>
-                            )}
-                          </TableCell>
-                        </>
-                      )}
                       <TableCell className="text-right">
                         {opp.binance_hl_arb !== null ? (
                           <FundingBadge
