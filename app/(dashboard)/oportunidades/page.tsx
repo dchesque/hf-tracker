@@ -38,6 +38,9 @@ interface FundingRateData {
   binance_hl_arb: number | null;
   bybit_hl_arb: number | null;
   scraped_at: string;
+  avg_24h?: number | null;
+  avg_7d?: number | null;
+  avg_30d?: number | null;
 }
 
 type TimePeriod = 'hour' | 'day' | 'week' | 'month' | 'year';
@@ -87,17 +90,37 @@ export default function OportunidadesPage() {
   const loadFundingRates = async () => {
     try {
       const supabase = createClient();
-      const { data, error } = await supabase.rpc('get_latest_funding_rates');
 
-      if (error) {
-        console.error('❌ [Oportunidades] Error fetching funding rates:', error);
+      // Buscar funding rates atuais
+      const { data: fundingData, error: fundingError } = await supabase.rpc('get_latest_funding_rates');
+
+      if (fundingError) {
+        console.error('❌ [Oportunidades] Error fetching funding rates:', fundingError);
         toast.error('Erro ao carregar funding rates');
         return;
       }
 
-      // Não ordenar aqui, vamos ordenar no useMemo após aplicar o multiplicador
-      setOpportunities(data || []);
-      console.log(`✅ [Oportunidades] Dados atualizados: ${(data || []).length} moedas carregadas`);
+      // Buscar médias históricas
+      const { data: avgData, error: avgError } = await supabase.rpc('get_historical_averages');
+
+      if (avgError) {
+        console.error('❌ [Oportunidades] Error fetching historical averages:', avgError);
+        // Não bloquear se médias não carregarem, apenas logar
+      }
+
+      // Combinar dados
+      const combined = (fundingData || []).map((funding: FundingRateData) => {
+        const avg = avgData?.find((a: any) => a.coin === funding.coin);
+        return {
+          ...funding,
+          avg_24h: avg?.avg_24h || null,
+          avg_7d: avg?.avg_7d || null,
+          avg_30d: avg?.avg_30d || null,
+        };
+      });
+
+      setOpportunities(combined);
+      console.log(`✅ [Oportunidades] Dados atualizados: ${combined.length} moedas carregadas`);
 
       // Buscar último scraping metadata
       const metadataRes = await fetch('/api/scraping-metadata');
@@ -628,6 +651,15 @@ export default function OportunidadesPage() {
                         {getSortIcon('bybit_rate')}
                       </div>
                     </TableHead>
+                    <TableHead className="px-4 py-3 bg-blue-100 text-blue-800 border-l-2 border-blue-400">
+                      Média 24h
+                    </TableHead>
+                    <TableHead className="px-4 py-3 bg-purple-100 text-purple-800 border-l-2 border-purple-400">
+                      Média 7d
+                    </TableHead>
+                    <TableHead className="px-4 py-3 bg-amber-100 text-amber-800 border-l-2 border-amber-400">
+                      Média 30d
+                    </TableHead>
                     <TableHead
                       className="text-right cursor-pointer hover:bg-gray-800/50"
                       onClick={() => handleSort('binance_hl_arb')}
@@ -691,6 +723,42 @@ export default function OportunidadesPage() {
                           />
                         ) : (
                           <span className="text-gray-500 text-xs">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 bg-blue-50 border-l-2 border-blue-300">
+                        {opp.avg_24h !== null && opp.avg_24h !== undefined ? (
+                          <div className="flex items-center gap-1 justify-end">
+                            <span className="text-xs">📊</span>
+                            <span className="text-blue-700 font-medium">
+                              {formatPercentage(Number(opp.avg_24h) * TIME_PERIOD_MULTIPLIERS[timePeriod])}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 italic text-xs text-right block">N/A</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 bg-purple-50 border-l-2 border-purple-300">
+                        {opp.avg_7d !== null && opp.avg_7d !== undefined ? (
+                          <div className="flex items-center gap-1 justify-end">
+                            <span className="text-xs">📈</span>
+                            <span className="text-purple-700 font-medium">
+                              {formatPercentage(Number(opp.avg_7d) * TIME_PERIOD_MULTIPLIERS[timePeriod])}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 italic text-xs text-right block">N/A</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 bg-amber-50 border-l-2 border-amber-300">
+                        {opp.avg_30d !== null && opp.avg_30d !== undefined ? (
+                          <div className="flex items-center gap-1 justify-end">
+                            <span className="text-xs">📉</span>
+                            <span className="text-amber-700 font-medium">
+                              {formatPercentage(Number(opp.avg_30d) * TIME_PERIOD_MULTIPLIERS[timePeriod])}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 italic text-xs text-right block">N/A</span>
                         )}
                       </TableCell>
                       <TableCell className="text-right">
