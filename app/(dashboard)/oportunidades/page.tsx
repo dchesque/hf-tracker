@@ -651,14 +651,14 @@ export default function OportunidadesPage() {
                         {getSortIcon('bybit_rate')}
                       </div>
                     </TableHead>
-                    <TableHead className="px-4 py-3 bg-blue-100 text-blue-800 border-l-2 border-blue-400">
-                      Média 24h
+                    <TableHead className="text-right border-l border-gray-700">
+                      <span className="text-blue-400">Média 24h</span>
                     </TableHead>
-                    <TableHead className="px-4 py-3 bg-purple-100 text-purple-800 border-l-2 border-purple-400">
-                      Média 7d
+                    <TableHead className="text-right border-l border-gray-700">
+                      <span className="text-purple-400">Média 7d</span>
                     </TableHead>
-                    <TableHead className="px-4 py-3 bg-amber-100 text-amber-800 border-l-2 border-amber-400">
-                      Média 30d
+                    <TableHead className="text-right border-l border-gray-700">
+                      <span className="text-amber-400">Média 30d</span>
                     </TableHead>
                     <TableHead
                       className="text-right cursor-pointer hover:bg-gray-800/50"
@@ -725,40 +725,31 @@ export default function OportunidadesPage() {
                           <span className="text-gray-500 text-xs">-</span>
                         )}
                       </TableCell>
-                      <TableCell className="px-4 py-3 bg-blue-50 border-l-2 border-blue-300">
+                      <TableCell className="text-right border-l border-gray-800">
                         {opp.avg_24h !== null && opp.avg_24h !== undefined ? (
-                          <div className="flex items-center gap-1 justify-end">
-                            <span className="text-xs">📊</span>
-                            <span className="text-blue-700 font-medium">
-                              {formatPercentage(Number(opp.avg_24h) * TIME_PERIOD_MULTIPLIERS[timePeriod])}
-                            </span>
-                          </div>
+                          <span className="text-blue-400 text-sm">
+                            {formatPercentage(Number(opp.avg_24h) * TIME_PERIOD_MULTIPLIERS['year'])}
+                          </span>
                         ) : (
-                          <span className="text-gray-400 italic text-xs text-right block">N/A</span>
+                          <span className="text-gray-600 text-xs">-</span>
                         )}
                       </TableCell>
-                      <TableCell className="px-4 py-3 bg-purple-50 border-l-2 border-purple-300">
+                      <TableCell className="text-right border-l border-gray-800">
                         {opp.avg_7d !== null && opp.avg_7d !== undefined ? (
-                          <div className="flex items-center gap-1 justify-end">
-                            <span className="text-xs">📈</span>
-                            <span className="text-purple-700 font-medium">
-                              {formatPercentage(Number(opp.avg_7d) * TIME_PERIOD_MULTIPLIERS[timePeriod])}
-                            </span>
-                          </div>
+                          <span className="text-purple-400 text-sm">
+                            {formatPercentage(Number(opp.avg_7d) * TIME_PERIOD_MULTIPLIERS['year'])}
+                          </span>
                         ) : (
-                          <span className="text-gray-400 italic text-xs text-right block">N/A</span>
+                          <span className="text-gray-600 text-xs">-</span>
                         )}
                       </TableCell>
-                      <TableCell className="px-4 py-3 bg-amber-50 border-l-2 border-amber-300">
+                      <TableCell className="text-right border-l border-gray-800">
                         {opp.avg_30d !== null && opp.avg_30d !== undefined ? (
-                          <div className="flex items-center gap-1 justify-end">
-                            <span className="text-xs">📉</span>
-                            <span className="text-amber-700 font-medium">
-                              {formatPercentage(Number(opp.avg_30d) * TIME_PERIOD_MULTIPLIERS[timePeriod])}
-                            </span>
-                          </div>
+                          <span className="text-amber-400 text-sm">
+                            {formatPercentage(Number(opp.avg_30d) * TIME_PERIOD_MULTIPLIERS['year'])}
+                          </span>
                         ) : (
-                          <span className="text-gray-400 italic text-xs text-right block">N/A</span>
+                          <span className="text-gray-600 text-xs">-</span>
                         )}
                       </TableCell>
                       <TableCell className="text-right">

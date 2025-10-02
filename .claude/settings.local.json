@@ -24,7 +24,8 @@
       "Bash(git add:*)",
       "Bash(git commit -m \"$(cat <<''EOF''\nfeat: add Docker support for Easypanel deployment\n\n- Add optimized multi-stage Dockerfile for Next.js production build\n- Configure next.config.ts with standalone output for Docker\n- Add .dockerignore to exclude unnecessary files from build\n- Include docker-compose.yml for local testing\n- Add comprehensive deployment documentation in README.deploy.md\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(git push:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(npx supabase:*)"
     ],
     "deny": [],
     "ask": []
