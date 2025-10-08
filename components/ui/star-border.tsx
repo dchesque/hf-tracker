@@ -1,8 +1,6 @@
 import { cn } from "@/lib/utils"
-import { ElementType, ComponentPropsWithoutRef } from "react"
 
-interface StarBorderProps<T extends ElementType> {
-  as?: T
+interface StarBorderProps extends React.HTMLAttributes<HTMLDivElement> {
   color?: string
   speed?: string
   size?: "sm" | "md" | "lg"
@@ -10,16 +8,14 @@ interface StarBorderProps<T extends ElementType> {
   children: React.ReactNode
 }
 
-export function StarBorder<T extends ElementType = "button">({
-  as,
+export function StarBorder({
   className,
   color,
   speed = "6s",
   size = "md",
   children,
   ...props
-}: StarBorderProps<T> & Omit<ComponentPropsWithoutRef<T>, keyof StarBorderProps<T>>) {
-  const Component = as || "button"
+}: StarBorderProps) {
   const defaultColor = color || "hsl(var(--foreground))"
 
   const sizeClasses = {
@@ -29,9 +25,9 @@ export function StarBorder<T extends ElementType = "button">({
   }
 
   return (
-    <Component
+    <div
       className={cn(
-        "relative inline-block py-[1px] overflow-hidden rounded-[20px]",
+        "relative inline-block py-[1px] overflow-hidden rounded-[20px] cursor-pointer",
         className
       )}
       {...props}
@@ -64,6 +60,6 @@ export function StarBorder<T extends ElementType = "button">({
       )}>
         {children}
       </div>
-    </Component>
+    </div>
   )
 }
