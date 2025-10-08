@@ -31,7 +31,8 @@
       "Bash(if exist .next rmdir /s /q .next)",
       "Bash(printf \"n\\n\")",
       "Bash(ls:*)",
-      "Bash(printf \"Y\\n\\x1B[B\\x1B[B\\x1B[B\\x1B[B\\x1B[B\\x1B[B\\x1B[B\\n\")"
+      "Bash(printf \"Y\\n\\x1B[B\\x1B[B\\x1B[B\\x1B[B\\x1B[B\\x1B[B\\x1B[B\\n\")",
+      "Bash(powershell:*)"
     ],
     "deny": [],
     "ask": []
