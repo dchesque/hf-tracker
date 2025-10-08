@@ -196,7 +196,7 @@ export const SignupFlow = ({ className }: SignupFlowProps) => {
                   >
                     <div className="space-y-1">
                       <h1 className="text-[2.5rem] font-bold leading-[1.1] tracking-tight text-white">Create Account</h1>
-                      <p className="text-[1.8rem] text-white/70 font-light">Start tracking your funding rates</p>
+                      <p className="text-[1.8rem] text-white/70 font-light">Spot Hyperliquid opportunities in real-time</p>
                     </div>
 
                     <div className="space-y-4">

@@ -192,7 +192,7 @@ export const LoginFlow = ({ className }: LoginFlowProps) => {
                   >
                     <div className="space-y-1">
                       <h1 className="text-[2.5rem] font-bold leading-[1.1] tracking-tight text-white">Welcome Back</h1>
-                      <p className="text-[1.8rem] text-white/70 font-light">Sign in to continue</p>
+                      <p className="text-[1.8rem] text-white/70 font-light">Never miss a profitable opportunity</p>
                     </div>
 
                     <div className="space-y-4">
