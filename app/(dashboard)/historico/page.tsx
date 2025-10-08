@@ -112,166 +112,180 @@ export default function HistoricoPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Histórico</h1>
-          <p className="text-muted-foreground mt-1">
-            Visualize e analise suas posições fechadas
-          </p>
+    <div className="relative min-h-screen">
+      {/* Abstract blur backgrounds */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 right-1/4 w-96 h-96 bg-yellow-500/2 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-1/4 left-1/3 w-80 h-80 bg-amber-500/2 rounded-full blur-3xl"></div>
+        <div className="absolute top-1/2 right-1/3 w-72 h-72 bg-yellow-400/1 rounded-full blur-3xl"></div>
+      </div>
+
+      <div className="relative space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight">
+              <span className="text-white">Trade</span>
+              <span className="text-yellow-500"> History</span>
+            </h1>
+            <p className="text-zinc-400 mt-2 text-base">
+              View and analyze your closed positions
+            </p>
+          </div>
+          <RealtimeIndicator
+            isConnected={isConnected}
+            status={status}
+            lastUpdate={lastEvent}
+          />
         </div>
-        <RealtimeIndicator
-          isConnected={isConnected}
-          status={status}
-          lastUpdate={lastEvent}
-        />
-      </div>
 
-      <div className="grid gap-6 md:grid-cols-5">
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-sm text-muted-foreground">Total de Trades</p>
-            <p className="text-3xl font-bold mt-2">{stats.totalTrades}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-sm text-muted-foreground">Win Rate</p>
-            <p className="text-3xl font-bold mt-2 text-success">
-              {stats.winRate.toFixed(1)}%
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-sm text-muted-foreground">Melhor Trade</p>
-            <p className="text-2xl font-bold mt-2 text-success">
-              {stats.bestTrade ? formatCurrency(Number(stats.bestTrade.pnlNet)) : '-'}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-sm text-muted-foreground">Pior Trade</p>
-            <p className="text-2xl font-bold mt-2 text-destructive">
-              {stats.worstTrade ? formatCurrency(Number(stats.worstTrade.pnlNet)) : '-'}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-sm text-muted-foreground">Lucro Total</p>
-            <p
-              className={`text-2xl font-bold mt-2 ${
-                stats.totalProfit >= 0 ? 'text-success' : 'text-destructive'
-              }`}
-            >
-              {formatCurrency(stats.totalProfit)}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {loading ? (
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-center h-32">
-              <div className="text-muted-foreground">Carregando...</div>
-            </div>
-          </CardContent>
-        </Card>
-      ) : positions.length === 0 ? (
-        <Card>
-          <CardContent className="p-12">
-            <div className="text-center space-y-4">
-              <div className="text-muted-foreground text-lg">Nenhuma posição fechada</div>
-              <p className="text-sm text-muted-foreground">
-                Suas posições fechadas aparecerão aqui
+        <div className="grid gap-6 md:grid-cols-5">
+          <Card className="backdrop-blur-xl bg-zinc-900/40 border-zinc-800/50 hover:border-yellow-500/20 transition-all duration-300">
+            <CardContent className="p-6">
+              <p className="text-sm text-zinc-400">Total Trades</p>
+              <p className="text-3xl font-bold mt-2 text-white">{stats.totalTrades}</p>
+            </CardContent>
+          </Card>
+          <Card className="backdrop-blur-xl bg-zinc-900/40 border-zinc-800/50 hover:border-yellow-500/20 transition-all duration-300">
+            <CardContent className="p-6">
+              <p className="text-sm text-zinc-400">Win Rate</p>
+              <p className="text-3xl font-bold mt-2 text-green-400">
+                {stats.winRate.toFixed(1)}%
               </p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Posições Fechadas</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Moeda</TableHead>
-                  <TableHead>Aberto</TableHead>
-                  <TableHead>Fechado</TableHead>
-                  <TableHead>Duração</TableHead>
-                  <TableHead>Capital</TableHead>
-                  <TableHead>P&L Final</TableHead>
-                  <TableHead>ROI</TableHead>
-                  <TableHead>Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {positions.map((position) => {
-                  const isProfitable = Number(position.pnlNet) >= 0;
-                  const isHighlighted = highlightedId === position.id;
-                  return (
-                    <TableRow
-                      key={position.id}
-                      className={`${
-                        isHighlighted
-                          ? isProfitable
-                            ? 'bg-green-950/30 animate-pulse'
-                            : 'bg-red-950/30 animate-pulse'
-                          : ''
-                      }`}
-                    >
-                      <TableCell className="font-mono font-bold">
-                        {position.coinSymbol}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {formatDateTime(new Date(position.openedAt)).split(' ')[0]}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {formatDateTime(new Date(position.closedAt)).split(' ')[0]}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {calculateDuration(position.openedAt, position.closedAt)}
-                      </TableCell>
-                      <TableCell>{formatCurrency(Number(position.totalCapital))}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`font-bold ${
-                              isProfitable ? 'text-success' : 'text-destructive'
-                            }`}
-                          >
-                            {formatCurrency(Number(position.pnlNet))}
-                          </span>
-                          {isProfitable ? (
-                            <TrendingUp className="text-success" size={16} />
-                          ) : (
-                            <TrendingDown className="text-destructive" size={16} />
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={isProfitable ? 'success' : 'destructive'}>
-                          {formatPercentage(Number(position.pnlPercentage) / 100)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="sm">
-                          <Eye size={16} />
-                        </Button>
-                      </TableCell>
+            </CardContent>
+          </Card>
+          <Card className="backdrop-blur-xl bg-zinc-900/40 border-zinc-800/50 hover:border-yellow-500/20 transition-all duration-300">
+            <CardContent className="p-6">
+              <p className="text-sm text-zinc-400">Best Trade</p>
+              <p className="text-2xl font-bold mt-2 text-green-400">
+                {stats.bestTrade ? formatCurrency(Number(stats.bestTrade.pnlNet)) : '-'}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="backdrop-blur-xl bg-zinc-900/40 border-zinc-800/50 hover:border-yellow-500/20 transition-all duration-300">
+            <CardContent className="p-6">
+              <p className="text-sm text-zinc-400">Worst Trade</p>
+              <p className="text-2xl font-bold mt-2 text-red-400">
+                {stats.worstTrade ? formatCurrency(Number(stats.worstTrade.pnlNet)) : '-'}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="backdrop-blur-xl bg-zinc-900/40 border-zinc-800/50 hover:border-yellow-500/20 transition-all duration-300">
+            <CardContent className="p-6">
+              <p className="text-sm text-zinc-400">Total Profit</p>
+              <p
+                className={`text-2xl font-bold mt-2 ${
+                  stats.totalProfit >= 0 ? 'text-green-400' : 'text-red-400'
+                }`}
+              >
+                {formatCurrency(stats.totalProfit)}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {loading ? (
+          <Card className="backdrop-blur-xl bg-zinc-900/40 border-zinc-800/50">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-center h-32">
+                <div className="text-zinc-400">Loading...</div>
+              </div>
+            </CardContent>
+          </Card>
+        ) : positions.length === 0 ? (
+          <Card className="backdrop-blur-xl bg-zinc-900/40 border-zinc-800/50">
+            <CardContent className="p-12">
+              <div className="text-center space-y-4">
+                <div className="text-zinc-400 text-lg">No closed positions</div>
+                <p className="text-sm text-zinc-500">
+                  Your closed positions will appear here
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="backdrop-blur-xl bg-zinc-900/40 border-zinc-800/50">
+            <CardHeader>
+              <CardTitle className="text-white">Closed Positions</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-zinc-400">Coin</TableHead>
+                      <TableHead className="text-zinc-400">Opened</TableHead>
+                      <TableHead className="text-zinc-400">Closed</TableHead>
+                      <TableHead className="text-zinc-400">Duration</TableHead>
+                      <TableHead className="text-zinc-400">Capital</TableHead>
+                      <TableHead className="text-zinc-400">Final P&L</TableHead>
+                      <TableHead className="text-zinc-400">ROI</TableHead>
+                      <TableHead className="text-zinc-400">Actions</TableHead>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
+                  </TableHeader>
+                  <TableBody>
+                    {positions.map((position) => {
+                      const isProfitable = Number(position.pnlNet) >= 0;
+                      const isHighlighted = highlightedId === position.id;
+                      return (
+                        <TableRow
+                          key={position.id}
+                          className={`hover:bg-zinc-800/30 transition-colors ${
+                            isHighlighted
+                              ? isProfitable
+                                ? 'bg-green-950/30 animate-pulse'
+                                : 'bg-red-950/30 animate-pulse'
+                              : ''
+                          }`}
+                        >
+                          <TableCell className="font-mono font-bold text-white">
+                            {position.coinSymbol}
+                          </TableCell>
+                          <TableCell className="text-sm text-zinc-400">
+                            {formatDateTime(new Date(position.openedAt)).split(' ')[0]}
+                          </TableCell>
+                          <TableCell className="text-sm text-zinc-400">
+                            {formatDateTime(new Date(position.closedAt)).split(' ')[0]}
+                          </TableCell>
+                          <TableCell className="text-sm text-zinc-400">
+                            {calculateDuration(position.openedAt, position.closedAt)}
+                          </TableCell>
+                          <TableCell className="text-zinc-300">{formatCurrency(Number(position.totalCapital))}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`font-bold ${
+                                  isProfitable ? 'text-green-400' : 'text-red-400'
+                                }`}
+                              >
+                                {formatCurrency(Number(position.pnlNet))}
+                              </span>
+                              {isProfitable ? (
+                                <TrendingUp className="text-green-400" size={16} />
+                              ) : (
+                                <TrendingDown className="text-red-400" size={16} />
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={isProfitable ? 'success' : 'destructive'} className={isProfitable ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30'}>
+                              {formatPercentage(Number(position.pnlPercentage) / 100)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="sm" className="hover:bg-zinc-800/60 hover:text-yellow-500">
+                              <Eye size={16} />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
