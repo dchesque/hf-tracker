@@ -105,7 +105,7 @@ export default function OportunidadesPage() {
       }
 
       // Buscar médias históricas
-      const { data: avgData, error: avgError } = await supabase.rpc('get_historical_averages');
+      const { data: avgData, error: avgError } = await supabase.rpc('get_historical_averages_hybrid');
 
       if (avgError) {
         console.error('❌ [Oportunidades] Error fetching historical averages:', avgError);
