@@ -209,8 +209,10 @@ export default function OportunidadesPage() {
 
       console.log('📊 [Oportunidades] Carregando batch inicial...');
 
-      // Buscar primeiras 30 moedas ordenadas por OI
-      const { data: fundingData, error: fundingError } = await supabase.rpc('get_latest_funding_rates');
+      // Buscar primeiras 30 moedas ordenadas por OI (versão otimizada com timeout)
+      const { data: fundingData, error: fundingError } = await supabase
+        .rpc('get_latest_funding_rates_fast')
+        .abortSignal(AbortSignal.timeout(30000)); // 30 segundos
 
       if (fundingError) {
         console.error('❌ [Oportunidades] Error fetching funding rates:', fundingError);
@@ -285,8 +287,10 @@ export default function OportunidadesPage() {
 
       console.log('📈 [Oportunidades] Carregando médias históricas...');
 
-      // Buscar médias históricas
-      const { data: avgData, error: avgError } = await supabase.rpc('get_historical_averages_hybrid');
+      // Buscar médias históricas com timeout
+      const { data: avgData, error: avgError } = await supabase
+        .rpc('get_historical_averages_hybrid')
+        .abortSignal(AbortSignal.timeout(30000)); // 30 segundos
 
       if (avgError) {
         console.error('❌ [Oportunidades] Error fetching historical averages:', avgError);
