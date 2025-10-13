@@ -206,7 +206,7 @@ export default function OportunidadesPage() {
 
       // Buscar médias históricas com timeout
       const { data: avgData, error: avgError } = await supabase
-        .rpc('get_historical_averages_hybrid')
+        .rpc('get_historical_averages_hybrid_correct')
         .abortSignal(AbortSignal.timeout(30000)); // 30 segundos
 
       if (avgError) {
@@ -229,6 +229,17 @@ export default function OportunidadesPage() {
       }));
 
       console.log(`✅ [Oportunidades] Médias históricas carregadas`);
+
+      // Debug: Mostrar primeiras 3 moedas com retornos acumulados corretos
+      console.log('Retornos Acumulados Corretos:',
+        avgData?.slice(0, 3).map((coin: any) => ({
+          coin: coin.coin,
+          'Last 24h': (coin.avg_24h * 100).toFixed(3) + '%',
+          'Last 7d': (coin.avg_7d * 100).toFixed(3) + '%',
+          'Last 30d': (coin.avg_30d * 100).toFixed(3) + '%',
+          'Daily Avg': ((coin.avg_30d / 30) * 100).toFixed(3) + '%/day'
+        }))
+      );
     } catch (error) {
       console.error('❌ [Oportunidades] Erro ao carregar médias históricas:', error);
     }
@@ -393,8 +404,13 @@ export default function OportunidadesPage() {
         const avg7d = Number(coin.avg_7d);
         const avg30d = Number(coin.avg_30d);
 
-        // Calcular coeficiente de variação
-        const values = [avg24h, avg7d, avg30d];
+        // Normalizar para comparação diária justa
+        const daily24h = avg24h;        // Retorno de 1 dia
+        const daily7d = avg7d / 7;       // Média diária dos 7 dias
+        const daily30d = avg30d / 30;    // Média diária dos 30 dias
+
+        // Calcular coeficiente de variação com valores normalizados
+        const values = [daily24h, daily7d, daily30d];
         const mean = values.reduce((a, b) => a + b) / 3;
         const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / 3;
         const cv = Math.sqrt(variance) / Math.abs(mean);
@@ -402,7 +418,7 @@ export default function OportunidadesPage() {
         return {
           coin,
           stability: mean > 0 && cv < 0.5 ? 1 / (1 + cv) : 0,
-          avgReturn: mean
+          avgReturn: mean  // Já é o retorno médio diário
         };
       })
       .filter(item => item.stability > 0 && item.avgReturn > 0)
@@ -416,12 +432,21 @@ export default function OportunidadesPage() {
         const avg7d = Number(coin.avg_7d);
         const avg30d = Number(coin.avg_30d);
 
-        return avg24h > avg7d && avg7d > avg30d && avg30d > 0;
+        // Normalizar para comparação justa
+        const daily24h = avg24h;
+        const daily7d = avg7d / 7;
+        const daily30d = avg30d / 30;
+
+        return daily24h > daily7d && daily7d > daily30d && daily30d > 0;
       })
       .map(coin => {
         const avg24h = Number(coin.avg_24h);
         const avg30d = Number(coin.avg_30d);
-        const growthRate = ((avg24h - avg30d) / avg30d) * 100;
+
+        const daily24h = avg24h;
+        const daily30d = avg30d / 30;
+
+        const growthRate = daily30d > 0 ? ((daily24h - daily30d) / daily30d) * 100 : 0;
 
         return { coin, growthRate };
       })
@@ -435,14 +460,21 @@ export default function OportunidadesPage() {
         const avg7d = Number(coin.avg_7d);
         const avg30d = Number(coin.avg_30d);
 
-        // Corrigido: garantir que está realmente caindo
-        return avg24h < avg7d && avg7d < avg30d && avg30d > 0;
+        // Normalizar
+        const daily24h = avg24h;
+        const daily7d = avg7d / 7;
+        const daily30d = avg30d / 30;
+
+        return daily24h < daily7d && daily7d < daily30d && daily30d > 0;
       })
       .map(coin => {
         const avg24h = Number(coin.avg_24h);
         const avg30d = Number(coin.avg_30d);
-        // Corrigido: cálculo da taxa de declínio
-        const declineRate = ((avg30d - avg24h) / avg30d) * 100;
+
+        const daily24h = avg24h;
+        const daily30d = avg30d / 30;
+
+        const declineRate = daily30d > 0 ? ((daily30d - daily24h) / daily30d) * 100 : 0;
 
         return { coin, declineRate };
       })
@@ -485,7 +517,7 @@ export default function OportunidadesPage() {
         textColor: 'text-emerald-400',
         coins: stableCoins.slice(0, 3).map(item => ({
           symbol: item.coin.coin,
-          value: Number(item.avgReturn) * 24 * 100,
+          value: item.avgReturn * 100,  // Já é o retorno médio diário
           metric: '% avg/day'
         })),
         count: stableCoins.length
@@ -524,8 +556,8 @@ export default function OportunidadesPage() {
       },
       {
         id: 'best30d',
-        title: 'Best 30d Average',
-        subtitle: 'Highest monthly returns',
+        title: 'Best 30d Return',
+        subtitle: 'Total return last 30 days',
         icon: Award,
         gradient: 'from-yellow-900/20 to-amber-950/40',
         borderColor: 'border-yellow-800/30',
@@ -533,8 +565,8 @@ export default function OportunidadesPage() {
         textColor: 'text-yellow-400',
         coins: bestHistoricalCoins.slice(0, 3).map(coin => ({
           symbol: coin.coin,
-          value: Number(coin.avg_30d) * 24 * 30 * 100,
-          metric: '% monthly'
+          value: Number(coin.avg_30d) * 100,  // Já é o retorno total de 30d
+          metric: '% total'
         })),
         count: bestHistoricalCoins.length
       }
