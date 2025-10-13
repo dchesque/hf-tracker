@@ -24,7 +24,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatLargeNumber, formatCurrency, formatPercentage } from '@/lib/utils';
-import { Search, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, Rocket, ExternalLink, ChevronRight, ChevronDown, Eye, EyeOff, Plus, TrendingUp, Target, Zap, Brain } from 'lucide-react';
+import { Search, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, Rocket, ExternalLink, ChevronRight, ChevronDown, Eye, EyeOff, Plus, TrendingUp, TrendingDown, Target, Zap, Brain, Shield, Award } from 'lucide-react';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { REALTIME_TABLES, REALTIME_EVENTS } from '@/lib/supabase/realtime-config';
 import { toast } from 'sonner';
@@ -69,90 +69,7 @@ type TimePeriod = 'hour' | 'day' | 'week' | 'month' | 'year';
 type SortField = 'coin' | 'hyperliquid_oi' | 'hyperliquid_rate' | 'binance_rate' | 'bybit_rate' | 'binance_hl_arb' | 'bybit_hl_arb' | 'avg_24h' | 'avg_7d' | 'avg_30d';
 type SortDirection = 'asc' | 'desc';
 
-// Calcula score de consistência (baixa variação, funding estável)
-const calculateConsistencyScore = (coin: FundingRateData) => {
-  if (!coin.avg_24h || !coin.avg_7d || !coin.avg_30d) return null;
-
-  const values = [
-    Number(coin.avg_24h),
-    Number(coin.avg_7d),
-    Number(coin.avg_30d)
-  ];
-
-  const mean = values.reduce((a, b) => a + b) / values.length;
-  if (mean <= 0) return null;
-
-  const variance = values.reduce((sum, val) =>
-    sum + Math.pow(val - mean, 2), 0) / values.length;
-  const stdDev = Math.sqrt(variance);
-  const cv = stdDev / mean;
-
-  return {
-    score: mean * (1 - Math.min(cv, 1)),
-    isConsistent: cv < 0.3 && mean > 0.0001,
-    averageReturn: mean
-  };
-};
-
-// Calcula momentum (tendência de crescimento)
-const calculateMomentumScore = (coin: FundingRateData) => {
-  if (!coin.avg_24h || !coin.avg_7d || !coin.avg_30d) return null;
-
-  const avg24h = Number(coin.avg_24h);
-  const avg7d = Number(coin.avg_7d);
-  const avg30d = Number(coin.avg_30d);
-
-  if (avg7d <= 0 || avg30d <= 0) return null;
-
-  const growth24to7 = (avg24h - avg7d) / avg7d;
-  const growth7to30 = (avg7d - avg30d) / avg30d;
-
-  return {
-    score: growth24to7 * 0.7 + growth7to30 * 0.3,
-    isGrowing: growth24to7 > 0.2 && growth7to30 > 0.1,
-    percentGrowth: growth24to7 * 100
-  };
-};
-
-// Identifica high yield sustentável
-const findSustainableHighYield = (coins: FundingRateData[]) => {
-  return coins
-    .filter(coin => {
-      const currentRate = Number(coin.hyperliquid_rate);
-      const avg7d = Number(coin.avg_7d || 0);
-      const oi = Number(coin.hyperliquid_oi);
-
-      return currentRate > 0.00005 && // > 0.005% por hora
-             avg7d > 0.00003 && // > 0.003% média 7d
-             oi > 1000000; // OI > $1M
-    })
-    .sort((a, b) => {
-      const scoreA = Number(a.hyperliquid_rate) * 0.7 + Number(a.avg_7d || 0) * 0.3;
-      const scoreB = Number(b.hyperliquid_rate) * 0.7 + Number(b.avg_7d || 0) * 0.3;
-      return scoreB - scoreA;
-    });
-};
-
-// Identifica spikes recentes
-const findRecentSpikes = (coins: FundingRateData[]) => {
-  return coins
-    .filter(coin => {
-      const avg24h = Number(coin.avg_24h || 0);
-      const avg7d = Number(coin.avg_7d || 0);
-      const currentRate = Number(coin.hyperliquid_rate);
-      const oi = Number(coin.hyperliquid_oi);
-
-      return avg7d > 0 &&
-             avg24h > avg7d * 2 && // 24h é 2x maior que 7d
-             currentRate > 0.00003 && // > 0.003% por hora
-             oi > 500000; // OI > $500k
-    })
-    .sort((a, b) => {
-      const ratioA = Number(a.avg_24h) / Number(a.avg_7d);
-      const ratioB = Number(b.avg_24h) / Number(b.avg_7d);
-      return ratioB - ratioA;
-    });
-};
+// Funções auxiliares removidas - cards agora usam lógica inline baseada apenas em histórico
 
 // Função para gerar URL de busca do CoinGecko no Google
 const getCoinGeckoSearchUrl = (symbol: string): string => {
@@ -462,99 +379,144 @@ export default function OportunidadesPage() {
   const insightCards = useMemo((): InsightCard[] => {
     if (opportunities.length === 0) return [];
 
-    // Card 1: Mais Consistentes
-    const consistentCoins = opportunities
-      .map(coin => ({
-        coin,
-        analysis: calculateConsistencyScore(coin)
-      }))
-      .filter(item => item.analysis?.isConsistent)
-      .sort((a, b) => (b.analysis?.score || 0) - (a.analysis?.score || 0))
+    // Filtrar apenas moedas com dados históricos completos
+    const coinsWithHistory = opportunities.filter(
+      coin => coin.avg_24h !== null && coin.avg_7d !== null && coin.avg_30d !== null
+    );
+
+    if (coinsWithHistory.length === 0) return [];
+
+    // Card 1: Most Stable (menor variação entre períodos)
+    const stableCoins = coinsWithHistory
+      .map(coin => {
+        const avg24h = Number(coin.avg_24h);
+        const avg7d = Number(coin.avg_7d);
+        const avg30d = Number(coin.avg_30d);
+
+        // Calcular coeficiente de variação
+        const values = [avg24h, avg7d, avg30d];
+        const mean = values.reduce((a, b) => a + b) / 3;
+        const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / 3;
+        const cv = Math.sqrt(variance) / Math.abs(mean);
+
+        return {
+          coin,
+          stability: mean > 0 && cv < 0.5 ? 1 / (1 + cv) : 0,
+          avgReturn: mean
+        };
+      })
+      .filter(item => item.stability > 0 && item.avgReturn > 0)
+      .sort((a, b) => b.stability - a.stability)
       .slice(0, 5);
 
-    // Card 2: Momentum Crescente
-    const momentumCoins = opportunities
-      .map(coin => ({
-        coin,
-        analysis: calculateMomentumScore(coin)
-      }))
-      .filter(item => item.analysis?.isGrowing)
-      .sort((a, b) => (b.analysis?.score || 0) - (a.analysis?.score || 0))
+    // Card 2: Growing Trend (24h > 7d > 30d)
+    const growingCoins = coinsWithHistory
+      .filter(coin => {
+        const avg24h = Number(coin.avg_24h);
+        const avg7d = Number(coin.avg_7d);
+        const avg30d = Number(coin.avg_30d);
+
+        return avg24h > avg7d && avg7d > avg30d && avg30d > 0;
+      })
+      .map(coin => {
+        const avg24h = Number(coin.avg_24h);
+        const avg30d = Number(coin.avg_30d);
+        const growthRate = ((avg24h - avg30d) / avg30d) * 100;
+
+        return { coin, growthRate };
+      })
+      .sort((a, b) => b.growthRate - a.growthRate)
       .slice(0, 5);
 
-    // Card 3: High Yield Sustentável
-    const highYieldCoins = findSustainableHighYield(opportunities).slice(0, 5);
+    // Card 3: Declining Trend (para alertar - 24h < 7d < 30d)
+    const decliningCoins = coinsWithHistory
+      .filter(coin => {
+        const avg24h = Number(coin.avg_24h);
+        const avg7d = Number(coin.avg_7d);
+        const avg30d = Number(coin.avg_30d);
 
-    // Card 4: Spikes Recentes
-    const spikeCoins = findRecentSpikes(opportunities).slice(0, 5);
+        return avg24h < avg7d && avg7d < avg30d && avg24h > 0;
+      })
+      .map(coin => {
+        const avg24h = Number(coin.avg_24h);
+        const avg30d = Number(coin.avg_30d);
+        const declineRate = ((avg30d - avg24h) / avg30d) * 100;
+
+        return { coin, declineRate };
+      })
+      .sort((a, b) => b.declineRate - a.declineRate)
+      .slice(0, 5);
+
+    // Card 4: Best Historical Average (maior média dos 30d)
+    const bestHistoricalCoins = coinsWithHistory
+      .filter(coin => Number(coin.avg_30d) > 0)
+      .sort((a, b) => Number(b.avg_30d) - Number(a.avg_30d))
+      .slice(0, 5);
 
     return [
       {
-        id: 'consistent',
-        title: 'Mais Consistentes',
-        subtitle: 'Funding estável em 30d',
-        icon: TrendingUp,
+        id: 'stable',
+        title: 'Most Stable',
+        subtitle: 'Low variance across periods',
+        icon: Shield,
         gradient: 'from-emerald-900/20 to-emerald-950/40',
         borderColor: 'border-emerald-800/30',
         badgeColor: 'bg-emerald-500/20 text-emerald-400',
         textColor: 'text-emerald-400',
-        coins: consistentCoins.slice(0, 3).map(item => ({
+        coins: stableCoins.slice(0, 3).map(item => ({
           symbol: item.coin.coin,
-          value: Number(item.analysis?.averageReturn || 0) * 24 * 100,
-          metric: '/dia'
+          value: Number(item.avgReturn) * 24 * 100,
+          metric: '% avg/day'
         })),
-        count: consistentCoins.length
+        count: stableCoins.length
       },
       {
-        id: 'momentum',
-        title: 'Momentum Positivo',
-        subtitle: 'Funding crescente',
-        icon: Rocket,
+        id: 'growing',
+        title: 'Growing Trend',
+        subtitle: '24h > 7d > 30d pattern',
+        icon: TrendingUp,
         gradient: 'from-blue-900/20 to-blue-950/40',
         borderColor: 'border-blue-800/30',
         badgeColor: 'bg-blue-500/20 text-blue-400',
         textColor: 'text-blue-400',
-        coins: momentumCoins.slice(0, 3).map(item => ({
+        coins: growingCoins.slice(0, 3).map(item => ({
           symbol: item.coin.coin,
-          value: item.analysis?.percentGrowth || 0,
-          metric: '% 24h vs 7d'
+          value: item.growthRate,
+          metric: '% growth'
         })),
-        count: momentumCoins.length
+        count: growingCoins.length
       },
       {
-        id: 'highyield',
-        title: 'Alto Rendimento',
-        subtitle: 'Validado historicamente',
-        icon: Target,
+        id: 'declining',
+        title: 'Declining Trend',
+        subtitle: 'Funding decreasing',
+        icon: TrendingDown,
+        gradient: 'from-red-900/20 to-red-950/40',
+        borderColor: 'border-red-800/30',
+        badgeColor: 'bg-red-500/20 text-red-400',
+        textColor: 'text-red-400',
+        coins: decliningCoins.slice(0, 3).map(item => ({
+          symbol: item.coin.coin,
+          value: -item.declineRate,
+          metric: '% decline'
+        })),
+        count: decliningCoins.length
+      },
+      {
+        id: 'best30d',
+        title: 'Best 30d Average',
+        subtitle: 'Highest monthly returns',
+        icon: Award,
         gradient: 'from-yellow-900/20 to-amber-950/40',
         borderColor: 'border-yellow-800/30',
         badgeColor: 'bg-yellow-500/20 text-yellow-400',
         textColor: 'text-yellow-400',
-        coins: highYieldCoins.slice(0, 3).map(coin => ({
+        coins: bestHistoricalCoins.slice(0, 3).map(coin => ({
           symbol: coin.coin,
-          value: Number(coin.hyperliquid_rate) * 24 * 365 * 100,
-          metric: '% APR'
+          value: Number(coin.avg_30d) * 24 * 30 * 100,
+          metric: '% monthly'
         })),
-        count: highYieldCoins.length
-      },
-      {
-        id: 'spikes',
-        title: 'Spike Recente',
-        subtitle: 'Oportunidade rápida',
-        icon: Zap,
-        gradient: 'from-purple-900/20 to-purple-950/40',
-        borderColor: 'border-purple-800/30',
-        badgeColor: 'bg-purple-500/20 text-purple-400',
-        textColor: 'text-purple-400',
-        coins: spikeCoins.slice(0, 3).map(coin => {
-          const ratio = Number(coin.avg_24h) / Number(coin.avg_7d);
-          return {
-            symbol: coin.coin,
-            value: (ratio - 1) * 100,
-            metric: '% spike'
-          };
-        }),
-        count: spikeCoins.length
+        count: bestHistoricalCoins.length
       }
     ].filter(card => card.count > 0);
   }, [opportunities]);
@@ -639,10 +601,10 @@ export default function OportunidadesPage() {
           <div className="flex items-center gap-2 mb-4">
             <Brain className="w-5 h-5 text-yellow-500" />
             <h2 className="text-lg font-semibold text-white">
-              Insights Inteligentes
+              Smart Insights
             </h2>
             <span className="text-xs text-zinc-400">
-              Baseado em análise de 24h, 7d e 30d
+              Based on 24h, 7d and 30d historical analysis
             </span>
           </div>
 
