@@ -237,9 +237,15 @@ export default function OportunidadesPage() {
         const existingIndex = prev.findIndex(opp => opp.coin === newData.coin);
 
         if (existingIndex !== -1) {
-          // Atualizar moeda existente
+          // Atualizar moeda existente preservando médias históricas
           const updated = [...prev];
-          updated[existingIndex] = newData;
+          updated[existingIndex] = {
+            ...newData,
+            // Preservar médias históricas que não vêm do realtime
+            avg_24h: prev[existingIndex].avg_24h,
+            avg_7d: prev[existingIndex].avg_7d,
+            avg_30d: prev[existingIndex].avg_30d,
+          };
           console.log(`✅ [Oportunidades] Moeda atualizada: ${newData.coin}`);
           return updated;
         } else {
