@@ -32,7 +32,8 @@
       "Bash(printf \"n\\n\")",
       "Bash(ls:*)",
       "Bash(printf \"Y\\n\\x1B[B\\x1B[B\\x1B[B\\x1B[B\\x1B[B\\x1B[B\\x1B[B\\n\")",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(npm run build)"
     ],
     "deny": [],
     "ask": []

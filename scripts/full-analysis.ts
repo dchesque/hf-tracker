@@ -111,7 +111,14 @@ async function fullAnalysis() {
 
   console.log('\n📊 5. VERIFICAÇÃO DE INTEGRIDADE\n')
 
-  const { data: coinsWithoutMarkets } = await supabase.rpc('count_coins_without_markets' as any).catch(() => null)
+  try {
+    const { data: coinsWithoutMarkets } = await supabase.rpc('count_coins_without_markets' as any)
+    if (coinsWithoutMarkets) {
+      console.log('⚠️  Moedas sem mercado:', coinsWithoutMarkets)
+    }
+  } catch (error) {
+    console.log('⚠️  Função count_coins_without_markets não existe')
+  }
 
   const { data: orphanFundingRates } = await supabase
     .from('funding_rates')

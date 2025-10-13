@@ -30,6 +30,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { StarBorder } from '@/components/ui/star-border';
 import Link from 'next/link';
+import { FundingRatesSkeleton, TopOpportunitiesSkeleton } from '@/components/FundingRatesSkeleton';
 
 interface FundingRateData {
   coin: string;
@@ -81,7 +82,12 @@ const TIME_PERIOD_LABELS: Record<TimePeriod, string> = {
 export default function OportunidadesPage() {
   const [opportunities, setOpportunities] = useState<FundingRateData[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [currentBatch, setCurrentBatch] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const [loadingError, setLoadingError] = useState<string | null>(null);
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('year');
   const [sortField, setSortField] = useState<SortField>('hyperliquid_rate');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -91,40 +97,35 @@ export default function OportunidadesPage() {
   const [showHistoricalColumns, setShowHistoricalColumns] = useState(true);
   const [showOnlyHyperliquid, setShowOnlyHyperliquid] = useState(false);
 
-  const loadFundingRates = async () => {
+  // Carrega o batch inicial de moedas (top 30)
+  const loadInitialBatch = async () => {
     try {
+      setIsInitialLoading(true);
+      setLoadingError(null);
       const supabase = createClient();
 
-      // Buscar funding rates atuais
+      console.log('📊 [Oportunidades] Carregando batch inicial...');
+
+      // Buscar primeiras 30 moedas ordenadas por OI
       const { data: fundingData, error: fundingError } = await supabase.rpc('get_latest_funding_rates');
 
       if (fundingError) {
         console.error('❌ [Oportunidades] Error fetching funding rates:', fundingError);
+        setLoadingError('Erro ao carregar funding rates');
         toast.error('Erro ao carregar funding rates');
         return;
       }
 
-      // Buscar médias históricas
-      const { data: avgData, error: avgError } = await supabase.rpc('get_historical_averages_hybrid');
+      // Pegar apenas top 30 para renderização inicial
+      const initialBatch = (fundingData || []).slice(0, 30);
+      const total = (fundingData || []).length;
 
-      if (avgError) {
-        console.error('❌ [Oportunidades] Error fetching historical averages:', avgError);
-        // Não bloquear se médias não carregarem, apenas logar
-      }
+      setOpportunities(initialBatch);
+      setTotalCount(total);
+      setCurrentBatch(1);
+      setHasMore(total > 30);
 
-      // Combinar dados
-      const combined = (fundingData || []).map((funding: FundingRateData) => {
-        const avg = avgData?.find((a: any) => a.coin === funding.coin);
-        return {
-          ...funding,
-          avg_24h: avg?.avg_24h || null,
-          avg_7d: avg?.avg_7d || null,
-          avg_30d: avg?.avg_30d || null,
-        };
-      });
-
-      setOpportunities(combined);
-      console.log(`✅ [Oportunidades] Dados atualizados: ${combined.length} moedas carregadas`);
+      console.log(`✅ [Oportunidades] Batch inicial carregado: ${initialBatch.length}/${total} moedas`);
 
       // Buscar último scraping metadata
       const metadataRes = await fetch('/api/scraping-metadata');
@@ -132,12 +133,86 @@ export default function OportunidadesPage() {
         const metadata = await metadataRes.json();
         setLastScrapedAt(metadata.created_at);
       }
+
+      // Carregar resto dos dados em background
+      if (total > 30) {
+        loadRemainingData(fundingData);
+      }
+
+      // Carregar médias históricas em paralelo (não bloqueante)
+      loadHistoricalAverages(fundingData);
     } catch (error) {
-      console.error('❌ [Oportunidades] Erro ao carregar dados:', error);
+      console.error('❌ [Oportunidades] Erro ao carregar batch inicial:', error);
+      setLoadingError('Erro ao carregar dados');
       toast.error('Erro ao carregar dados');
     } finally {
-      setIsLoading(false);
+      setIsInitialLoading(false);
     }
+  };
+
+  // Carrega os dados restantes em batches progressivos
+  const loadRemainingData = async (allData: FundingRateData[]) => {
+    setIsLoadingMore(true);
+    const BATCH_SIZE = 30;
+    let offset = 30;
+
+    while (offset < allData.length) {
+      // Aguardar 500ms entre batches para não sobrecarregar
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      const nextBatch = allData.slice(offset, offset + BATCH_SIZE);
+
+      setOpportunities(prev => [...prev, ...nextBatch]);
+      setCurrentBatch(prev => prev + 1);
+
+      console.log(`✅ [Oportunidades] Batch ${Math.floor(offset / BATCH_SIZE) + 1} carregado: ${offset + nextBatch.length}/${allData.length}`);
+
+      offset += BATCH_SIZE;
+    }
+
+    setHasMore(false);
+    setIsLoadingMore(false);
+    console.log(`✅ [Oportunidades] Todos os dados carregados: ${allData.length} moedas`);
+  };
+
+  // Carrega médias históricas de forma assíncrona
+  const loadHistoricalAverages = async (coins: FundingRateData[]) => {
+    try {
+      const supabase = createClient();
+
+      console.log('📈 [Oportunidades] Carregando médias históricas...');
+
+      // Buscar médias históricas
+      const { data: avgData, error: avgError } = await supabase.rpc('get_historical_averages_hybrid');
+
+      if (avgError) {
+        console.error('❌ [Oportunidades] Error fetching historical averages:', avgError);
+        return;
+      }
+
+      // Atualizar oportunidades com médias históricas
+      setOpportunities(prev => prev.map(opp => {
+        const avg = avgData?.find((a: any) => a.coin === opp.coin);
+        if (avg) {
+          return {
+            ...opp,
+            avg_24h: avg.avg_24h || null,
+            avg_7d: avg.avg_7d || null,
+            avg_30d: avg.avg_30d || null,
+          };
+        }
+        return opp;
+      }));
+
+      console.log(`✅ [Oportunidades] Médias históricas carregadas`);
+    } catch (error) {
+      console.error('❌ [Oportunidades] Erro ao carregar médias históricas:', error);
+    }
+  };
+
+  // Função legada para compatibilidade com realtime
+  const loadFundingRates = async () => {
+    loadInitialBatch();
   };
 
   useEffect(() => {
@@ -155,6 +230,25 @@ export default function OportunidadesPage() {
     table: REALTIME_TABLES.FUNDING_RATES,
     event: REALTIME_EVENTS.INSERT,
     onInsert: (payload) => {
+      // Update incremental: atualizar apenas a moeda específica
+      const newData = payload.new as FundingRateData;
+
+      setOpportunities(prev => {
+        const existingIndex = prev.findIndex(opp => opp.coin === newData.coin);
+
+        if (existingIndex !== -1) {
+          // Atualizar moeda existente
+          const updated = [...prev];
+          updated[existingIndex] = newData;
+          console.log(`✅ [Oportunidades] Moeda atualizada: ${newData.coin}`);
+          return updated;
+        } else {
+          // Adicionar nova moeda no início
+          console.log(`✅ [Oportunidades] Nova moeda adicionada: ${newData.coin}`);
+          return [newData, ...prev];
+        }
+      });
+
       // Incrementa contador de atualizações
       updateCountRef.current++;
 
@@ -163,13 +257,9 @@ export default function OportunidadesPage() {
         clearTimeout(debounceTimerRef.current);
       }
 
-      // Aguarda 2 segundos sem novos INSERTs para disparar atualização única
+      // Aguarda 2 segundos sem novos INSERTs para mostrar notificação
       debounceTimerRef.current = setTimeout(() => {
         const count = updateCountRef.current;
-        console.log(`✅ [Oportunidades] ${count} moeda(s) atualizadas - recarregando dados`);
-
-        // Carrega dados apenas uma vez
-        loadFundingRates();
 
         // Mostra notificação única
         toast.success('Funding rates atualizados!', {
@@ -331,7 +421,9 @@ export default function OportunidadesPage() {
       </div>
 
       {/* Top 4 Opportunities Cards */}
-      {!isLoading && topOpportunities.length > 0 && (
+      {isInitialLoading ? (
+        <TopOpportunitiesSkeleton />
+      ) : topOpportunities.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {topOpportunities.map((opp, index) => {
             // opp.hyperliquid_rate já é por HORA (valor do banco)
@@ -622,11 +714,64 @@ export default function OportunidadesPage() {
         </CardContent>
       </Card>
 
-      {isLoading ? (
+      {isInitialLoading ? (
+        <Card className="backdrop-blur-xl bg-zinc-900/40 border-zinc-800/50">
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-16">Rank</TableHead>
+                    <TableHead>Coin</TableHead>
+                    <TableHead className="text-right">Hyperliquid OI</TableHead>
+                    <TableHead className="text-right">Hyperliquid ({TIME_PERIOD_LABELS[timePeriod]})</TableHead>
+                    {showHistoricalColumns && (
+                      <>
+                        <TableHead className="text-right border-l border-zinc-700">
+                          <span className="text-blue-400">Last 24h</span>
+                        </TableHead>
+                        <TableHead className="text-right">
+                          <span className="text-purple-400">Last 7d</span>
+                        </TableHead>
+                        <TableHead className="text-right">
+                          <span className="text-amber-400">Last 30d</span>
+                        </TableHead>
+                      </>
+                    )}
+                    {!showOnlyHyperliquid && (
+                      <>
+                        <TableHead className="text-right">Binance ({TIME_PERIOD_LABELS[timePeriod]})</TableHead>
+                        <TableHead className="text-right">Bybit ({TIME_PERIOD_LABELS[timePeriod]})</TableHead>
+                        <TableHead className="text-right">Binance-HL Arb ({TIME_PERIOD_LABELS[timePeriod]})</TableHead>
+                        <TableHead className="text-right">Bybit-HL Arb ({TIME_PERIOD_LABELS[timePeriod]})</TableHead>
+                      </>
+                    )}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <FundingRatesSkeleton
+                    rows={10}
+                    showHistoricalColumns={showHistoricalColumns}
+                    showOnlyHyperliquid={showOnlyHyperliquid}
+                  />
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      ) : loadingError ? (
         <Card className="backdrop-blur-xl bg-zinc-900/40 border-zinc-800/50">
           <CardContent className="p-12">
             <div className="text-center space-y-4">
-              <div className="text-zinc-400 text-lg">Loading opportunities...</div>
+              <div className="text-red-400 text-lg">{loadingError}</div>
+              <Button
+                onClick={loadFundingRates}
+                variant="outline"
+                className="border-yellow-500/50 text-yellow-500 hover:bg-yellow-500/10"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Tentar Novamente
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -862,7 +1007,13 @@ export default function OportunidadesPage() {
 
       {filteredOpportunities.length > 0 && (
         <div className="text-sm text-zinc-500 text-center backdrop-blur-sm bg-zinc-900/20 py-3 px-4 rounded-lg border border-zinc-800/30">
-          Showing {filteredOpportunities.length} coin(s) • Last update:{' '}
+          Showing {filteredOpportunities.length} coin(s)
+          {isLoadingMore && totalCount > 0 && (
+            <span className="text-yellow-400/80 font-medium ml-2 animate-pulse">
+              • Carregando {opportunities.length}/{totalCount}...
+            </span>
+          )}
+          {' • Last update: '}
           <span className="text-yellow-400/80 font-medium">
             {new Date(filteredOpportunities[0].scraped_at).toLocaleString('en-US')}
           </span>
