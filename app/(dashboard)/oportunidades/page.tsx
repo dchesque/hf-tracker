@@ -435,11 +435,13 @@ export default function OportunidadesPage() {
         const avg7d = Number(coin.avg_7d);
         const avg30d = Number(coin.avg_30d);
 
-        return avg24h < avg7d && avg7d < avg30d && avg24h > 0;
+        // Corrigido: garantir que está realmente caindo
+        return avg24h < avg7d && avg7d < avg30d && avg30d > 0;
       })
       .map(coin => {
         const avg24h = Number(coin.avg_24h);
         const avg30d = Number(coin.avg_30d);
+        // Corrigido: cálculo da taxa de declínio
         const declineRate = ((avg30d - avg24h) / avg30d) * 100;
 
         return { coin, declineRate };
@@ -452,6 +454,24 @@ export default function OportunidadesPage() {
       .filter(coin => Number(coin.avg_30d) > 0)
       .sort((a, b) => Number(b.avg_30d) - Number(a.avg_30d))
       .slice(0, 5);
+
+    // DEBUG - Remover depois de confirmar
+    console.log('Debug Insights:', {
+      stable: stableCoins.slice(0, 3).map(s => ({
+        coin: s.coin.coin,
+        avg: s.avgReturn,
+        daily: s.avgReturn * 24 * 100
+      })),
+      declining: decliningCoins.slice(0, 3).map(d => ({
+        coin: d.coin.coin,
+        rate: d.declineRate
+      })),
+      best30d: bestHistoricalCoins.slice(0, 3).map(b => ({
+        coin: b.coin,
+        avg30d: b.avg_30d,
+        monthly: Number(b.avg_30d) * 24 * 30 * 100
+      }))
+    });
 
     return [
       {
