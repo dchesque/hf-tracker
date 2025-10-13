@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { FundingBadge } from '@/components/shared/FundingBadge';
 import { RealtimeIndicator } from '@/components/shared/RealtimeIndicator';
@@ -23,7 +24,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatLargeNumber, formatCurrency, formatPercentage } from '@/lib/utils';
-import { Search, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, Rocket, ExternalLink, ChevronRight, ChevronDown, Eye, EyeOff, Plus } from 'lucide-react';
+import { Search, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, Rocket, ExternalLink, ChevronRight, ChevronDown, Eye, EyeOff, Plus, TrendingUp, Target, Zap, Brain } from 'lucide-react';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { REALTIME_TABLES, REALTIME_EVENTS } from '@/lib/supabase/realtime-config';
 import { toast } from 'sonner';
@@ -46,10 +47,112 @@ interface FundingRateData {
   avg_30d?: number | null;
 }
 
+interface InsightCard {
+  id: string;
+  title: string;
+  subtitle: string;
+  icon: typeof TrendingUp;
+  gradient: string;
+  borderColor: string;
+  badgeColor: string;
+  textColor: string;
+  coins: Array<{
+    symbol: string;
+    value: number;
+    metric: string;
+  }>;
+  count: number;
+}
+
 type TimePeriod = 'hour' | 'day' | 'week' | 'month' | 'year';
 
 type SortField = 'coin' | 'hyperliquid_oi' | 'hyperliquid_rate' | 'binance_rate' | 'bybit_rate' | 'binance_hl_arb' | 'bybit_hl_arb' | 'avg_24h' | 'avg_7d' | 'avg_30d';
 type SortDirection = 'asc' | 'desc';
+
+// Calcula score de consistência (baixa variação, funding estável)
+const calculateConsistencyScore = (coin: FundingRateData) => {
+  if (!coin.avg_24h || !coin.avg_7d || !coin.avg_30d) return null;
+
+  const values = [
+    Number(coin.avg_24h),
+    Number(coin.avg_7d),
+    Number(coin.avg_30d)
+  ];
+
+  const mean = values.reduce((a, b) => a + b) / values.length;
+  if (mean <= 0) return null;
+
+  const variance = values.reduce((sum, val) =>
+    sum + Math.pow(val - mean, 2), 0) / values.length;
+  const stdDev = Math.sqrt(variance);
+  const cv = stdDev / mean;
+
+  return {
+    score: mean * (1 - Math.min(cv, 1)),
+    isConsistent: cv < 0.3 && mean > 0.0001,
+    averageReturn: mean
+  };
+};
+
+// Calcula momentum (tendência de crescimento)
+const calculateMomentumScore = (coin: FundingRateData) => {
+  if (!coin.avg_24h || !coin.avg_7d || !coin.avg_30d) return null;
+
+  const avg24h = Number(coin.avg_24h);
+  const avg7d = Number(coin.avg_7d);
+  const avg30d = Number(coin.avg_30d);
+
+  if (avg7d <= 0 || avg30d <= 0) return null;
+
+  const growth24to7 = (avg24h - avg7d) / avg7d;
+  const growth7to30 = (avg7d - avg30d) / avg30d;
+
+  return {
+    score: growth24to7 * 0.7 + growth7to30 * 0.3,
+    isGrowing: growth24to7 > 0.2 && growth7to30 > 0.1,
+    percentGrowth: growth24to7 * 100
+  };
+};
+
+// Identifica high yield sustentável
+const findSustainableHighYield = (coins: FundingRateData[]) => {
+  return coins
+    .filter(coin => {
+      const currentRate = Number(coin.hyperliquid_rate);
+      const avg7d = Number(coin.avg_7d || 0);
+      const oi = Number(coin.hyperliquid_oi);
+
+      return currentRate > 0.00005 && // > 0.005% por hora
+             avg7d > 0.00003 && // > 0.003% média 7d
+             oi > 1000000; // OI > $1M
+    })
+    .sort((a, b) => {
+      const scoreA = Number(a.hyperliquid_rate) * 0.7 + Number(a.avg_7d || 0) * 0.3;
+      const scoreB = Number(b.hyperliquid_rate) * 0.7 + Number(b.avg_7d || 0) * 0.3;
+      return scoreB - scoreA;
+    });
+};
+
+// Identifica spikes recentes
+const findRecentSpikes = (coins: FundingRateData[]) => {
+  return coins
+    .filter(coin => {
+      const avg24h = Number(coin.avg_24h || 0);
+      const avg7d = Number(coin.avg_7d || 0);
+      const currentRate = Number(coin.hyperliquid_rate);
+      const oi = Number(coin.hyperliquid_oi);
+
+      return avg7d > 0 &&
+             avg24h > avg7d * 2 && // 24h é 2x maior que 7d
+             currentRate > 0.00003 && // > 0.003% por hora
+             oi > 500000; // OI > $500k
+    })
+    .sort((a, b) => {
+      const ratioA = Number(a.avg_24h) / Number(a.avg_7d);
+      const ratioB = Number(b.avg_24h) / Number(b.avg_7d);
+      return ratioB - ratioA;
+    });
+};
 
 // Função para gerar URL de busca do CoinGecko no Google
 const getCoinGeckoSearchUrl = (symbol: string): string => {
@@ -352,6 +455,106 @@ export default function OportunidadesPage() {
     });
   }, [opportunities, searchTerm, timePeriod, sortField, sortDirection]);
 
+  const insightCards = useMemo((): InsightCard[] => {
+    if (opportunities.length === 0) return [];
+
+    // Card 1: Mais Consistentes
+    const consistentCoins = opportunities
+      .map(coin => ({
+        coin,
+        analysis: calculateConsistencyScore(coin)
+      }))
+      .filter(item => item.analysis?.isConsistent)
+      .sort((a, b) => (b.analysis?.score || 0) - (a.analysis?.score || 0))
+      .slice(0, 5);
+
+    // Card 2: Momentum Crescente
+    const momentumCoins = opportunities
+      .map(coin => ({
+        coin,
+        analysis: calculateMomentumScore(coin)
+      }))
+      .filter(item => item.analysis?.isGrowing)
+      .sort((a, b) => (b.analysis?.score || 0) - (a.analysis?.score || 0))
+      .slice(0, 5);
+
+    // Card 3: High Yield Sustentável
+    const highYieldCoins = findSustainableHighYield(opportunities).slice(0, 5);
+
+    // Card 4: Spikes Recentes
+    const spikeCoins = findRecentSpikes(opportunities).slice(0, 5);
+
+    return [
+      {
+        id: 'consistent',
+        title: 'Mais Consistentes',
+        subtitle: 'Funding estável em 30d',
+        icon: TrendingUp,
+        gradient: 'from-emerald-900/20 to-emerald-950/40',
+        borderColor: 'border-emerald-800/30',
+        badgeColor: 'bg-emerald-500/20 text-emerald-400',
+        textColor: 'text-emerald-400',
+        coins: consistentCoins.slice(0, 3).map(item => ({
+          symbol: item.coin.coin,
+          value: Number(item.analysis?.averageReturn || 0) * 24 * 100,
+          metric: '/dia'
+        })),
+        count: consistentCoins.length
+      },
+      {
+        id: 'momentum',
+        title: 'Momentum Positivo',
+        subtitle: 'Funding crescente',
+        icon: Rocket,
+        gradient: 'from-blue-900/20 to-blue-950/40',
+        borderColor: 'border-blue-800/30',
+        badgeColor: 'bg-blue-500/20 text-blue-400',
+        textColor: 'text-blue-400',
+        coins: momentumCoins.slice(0, 3).map(item => ({
+          symbol: item.coin.coin,
+          value: item.analysis?.percentGrowth || 0,
+          metric: '% 24h vs 7d'
+        })),
+        count: momentumCoins.length
+      },
+      {
+        id: 'highyield',
+        title: 'Alto Rendimento',
+        subtitle: 'Validado historicamente',
+        icon: Target,
+        gradient: 'from-yellow-900/20 to-amber-950/40',
+        borderColor: 'border-yellow-800/30',
+        badgeColor: 'bg-yellow-500/20 text-yellow-400',
+        textColor: 'text-yellow-400',
+        coins: highYieldCoins.slice(0, 3).map(coin => ({
+          symbol: coin.coin,
+          value: Number(coin.hyperliquid_rate) * 24 * 365 * 100,
+          metric: '% APR'
+        })),
+        count: highYieldCoins.length
+      },
+      {
+        id: 'spikes',
+        title: 'Spike Recente',
+        subtitle: 'Oportunidade rápida',
+        icon: Zap,
+        gradient: 'from-purple-900/20 to-purple-950/40',
+        borderColor: 'border-purple-800/30',
+        badgeColor: 'bg-purple-500/20 text-purple-400',
+        textColor: 'text-purple-400',
+        coins: spikeCoins.slice(0, 3).map(coin => {
+          const ratio = Number(coin.avg_24h) / Number(coin.avg_7d);
+          return {
+            symbol: coin.coin,
+            value: (ratio - 1) * 100,
+            metric: '% spike'
+          };
+        }),
+        count: spikeCoins.length
+      }
+    ].filter(card => card.count > 0);
+  }, [opportunities]);
+
   const calculateReturns = (hourlyRate: number, investment: number = 1000) => {
     // hourlyRate já é a taxa por hora (valor do banco de dados)
     // Retorno em valor absoluto por hora (apenas sobre os 50% expostos)
@@ -425,6 +628,85 @@ export default function OportunidadesPage() {
           />
         </div>
       </div>
+
+      {/* Insight Cards - Análise Inteligente */}
+      {!isInitialLoading && insightCards.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Brain className="w-5 h-5 text-yellow-500" />
+            <h2 className="text-lg font-semibold text-white">
+              Insights Inteligentes
+            </h2>
+            <span className="text-xs text-zinc-400">
+              Baseado em análise de 24h, 7d e 30d
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {insightCards.map((card) => {
+              const Icon = card.icon;
+              return (
+                <Card
+                  key={card.id}
+                  className={`relative overflow-hidden backdrop-blur-xl bg-gradient-to-br ${card.gradient} ${card.borderColor} border shadow-2xl hover:shadow-yellow-500/5 transition-all duration-300`}
+                >
+                  {/* Efeito de brilho abstrato */}
+                  <div className={`absolute -top-12 -right-12 w-24 h-24 ${card.textColor.replace('text', 'bg')}/10 rounded-full blur-3xl pointer-events-none`}></div>
+
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <Icon className={`w-5 h-5 ${card.textColor}`} />
+                      <Badge className={`${card.badgeColor} text-xs`}>
+                        {card.count} {card.count === 1 ? 'moeda' : 'moedas'}
+                      </Badge>
+                    </div>
+                    <CardTitle className="text-base font-bold text-white">
+                      {card.title}
+                    </CardTitle>
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                      {card.subtitle}
+                    </p>
+                  </CardHeader>
+
+                  <CardContent className="pt-2">
+                    {card.coins.length > 0 ? (
+                      <>
+                        <div className="space-y-1.5">
+                          {card.coins.map((coin, idx) => (
+                            <div key={idx} className="flex justify-between items-center">
+                              <span className="font-mono text-sm text-zinc-300">
+                                {coin.symbol}
+                              </span>
+                              <span className={`text-xs font-semibold ${card.textColor}`}>
+                                {coin.value > 0 && '+'}
+                                {coin.value.toFixed(2)}{coin.metric}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {card.count > 3 && (
+                          <div className="mt-3 pt-2 border-t border-zinc-800/50">
+                            <p className="text-xs text-center text-zinc-500">
+                              +{card.count - 3} outras
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="py-4 text-center">
+                        <p className="text-xs text-zinc-500">
+                          Analisando dados...
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Top 4 Opportunities Cards */}
       {isInitialLoading ? (
