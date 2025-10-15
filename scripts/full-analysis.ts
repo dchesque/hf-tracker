@@ -39,13 +39,13 @@ async function fullAnalysis() {
 
   console.log('\n📊 2. FUNÇÃO RPC\n')
 
-  const { data: rpcData, error: rpcError } = await supabase.rpc('get_latest_funding_rates')
+  const { data: rpcData, error: rpcError } = await supabase.rpc('get_latest_funding_rates_instant')
 
   if (rpcError) {
-    console.log(`❌ get_latest_funding_rates  - NÃO EXISTE`)
+    console.log(`❌ get_latest_funding_rates_instant  - NÃO EXISTE`)
     console.log(`   Erro: ${rpcError.message}`)
   } else {
-    console.log(`✅ get_latest_funding_rates  - ${rpcData?.length || 0} moedas retornadas`)
+    console.log(`✅ get_latest_funding_rates_instant  - ${rpcData?.length || 0} moedas retornadas`)
   }
 
   console.log('\n📊 3. ANÁLISE DE DADOS\n')

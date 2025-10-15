@@ -128,7 +128,7 @@ export default function OportunidadesPage() {
 
       // Buscar primeiras 30 moedas ordenadas por OI (versão otimizada com timeout)
       const { data: fundingData, error: fundingError } = await supabase
-        .rpc('get_latest_funding_rates_fast')
+        .rpc('get_latest_funding_rates_instant')
         .abortSignal(AbortSignal.timeout(30000)); // 30 segundos
 
       if (fundingError) {
@@ -206,7 +206,7 @@ export default function OportunidadesPage() {
 
       // Buscar médias históricas com timeout
       const { data: avgData, error: avgError } = await supabase
-        .rpc('get_historical_averages_hybrid_correct')
+        .rpc('get_historical_averages_optimized')
         .abortSignal(AbortSignal.timeout(30000)); // 30 segundos
 
       if (avgError) {

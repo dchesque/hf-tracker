@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     const supabase = await createClient();
 
     const { data: latestRates, error } = await supabase.rpc(
-      "get_latest_funding_rates"
+      "get_latest_funding_rates_instant"
     );
 
     if (error) throw error;

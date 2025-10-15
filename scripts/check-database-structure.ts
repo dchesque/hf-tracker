@@ -39,15 +39,15 @@ async function checkDatabaseStructure() {
     }
   }
 
-  console.log('\n🔍 Testando função RPC get_latest_funding_rates...\n')
+  console.log('\n🔍 Testando função RPC get_latest_funding_rates_instant...\n')
 
-  const { data: rpcData, error: rpcError } = await supabase.rpc('get_latest_funding_rates')
+  const { data: rpcData, error: rpcError } = await supabase.rpc('get_latest_funding_rates_instant')
 
   if (rpcError) {
-    console.log('❌ Função RPC get_latest_funding_rates NÃO EXISTE')
+    console.log('❌ Função RPC get_latest_funding_rates_instant NÃO EXISTE')
     console.log(`   Erro: ${rpcError.message}`)
   } else {
-    console.log(`✅ Função RPC get_latest_funding_rates - ${rpcData?.length || 0} moedas retornadas`)
+    console.log(`✅ Função RPC get_latest_funding_rates_instant - ${rpcData?.length || 0} moedas retornadas`)
     if (rpcData && rpcData.length > 0) {
       console.log('   Primeiras 3 moedas:', rpcData.slice(0, 3).map((r: any) => r.coin))
     }
